@@ -66,6 +66,71 @@ RECOMMENDED_THINKING_BUDGET = -1
 CONF_THINKING_LEVEL = "thinking_level"
 RECOMMENDED_THINKING_LEVEL = "auto"
 
+
+CONF_PERSONALITY = "personality"
+CONF_RESPONSE_LENGTH = "response_length"
+CONF_LATENCY_PROFILE = "latency_profile"
+CONF_VOICE_MOOD = "voice_mood"
+CONF_SPEAKING_PACE = "speaking_pace"
+
+DEFAULT_PERSONALITY = "playful"
+DEFAULT_RESPONSE_LENGTH = "short"
+DEFAULT_LATENCY_PROFILE = "fast"
+DEFAULT_VOICE_MOOD = "cheerful"
+DEFAULT_SPEAKING_PACE = "natural"
+
+PERSONALITY_PROMPTS = {
+    "playful": (
+        "Seja leve, brincalhona e espontânea, com humor sutil e sem exageros."
+    ),
+    "warm": (
+        "Seja acolhedora, calma e próxima, mantendo respostas claras e naturais."
+    ),
+    "direct": (
+        "Seja direta, prática e objetiva, sem introduções desnecessárias."
+    ),
+    "teacher": (
+        "Explique com clareza, exemplos simples e tom paciente, sem infantilizar."
+    ),
+    "technical": (
+        "Seja técnica e precisa, usando detalhes quando forem realmente úteis."
+    ),
+}
+
+RESPONSE_LENGTH_PROMPTS = {
+    "very_short": "Responda em uma frase curta sempre que possível.",
+    "short": "Responda normalmente em até duas frases.",
+    "balanced": "Responda de forma equilibrada, com apenas os detalhes necessários.",
+    "detailed": "Dê uma resposta mais completa quando o assunto exigir.",
+}
+
+LATENCY_PROFILE_PROMPTS = {
+    "fast": (
+        "Priorize velocidade e respostas curtas. Evite raciocínios longos "
+        "quando uma resposta simples for suficiente."
+    ),
+    "balanced": (
+        "Equilibre velocidade e qualidade, aprofundando apenas quando necessário."
+    ),
+    "quality": (
+        "Priorize qualidade e precisão, mesmo que a resposta leve um pouco mais."
+    ),
+}
+
+VOICE_MOOD_PROMPTS = {
+    "cheerful": "alegre, luminosa e alto-astral",
+    "warm": "acolhedora, suave e simpática",
+    "calm": "calma, serena e confortável",
+    "enthusiastic": "entusiasmada, viva e positiva",
+    "professional": "confiante, clara e profissional",
+}
+
+SPEAKING_PACE_PROMPTS = {
+    "slow": "Fale um pouco mais devagar, com pausas naturais.",
+    "natural": "Use ritmo natural de conversa, com pausas curtas.",
+    "fast": "Fale de forma ágil, mas sem perder clareza.",
+}
+
 TIMEOUT_MILLIS = 10000
 FILE_POLLING_INTERVAL_SECONDS = 0.05
 
@@ -75,6 +140,9 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
     CONF_TEMPERATURE: 0.7,
+    CONF_PERSONALITY: DEFAULT_PERSONALITY,
+    CONF_RESPONSE_LENGTH: DEFAULT_RESPONSE_LENGTH,
+    CONF_LATENCY_PROFILE: DEFAULT_LATENCY_PROFILE,
 }
 
 RECOMMENDED_STT_OPTIONS = {
@@ -89,6 +157,8 @@ RECOMMENDED_TTS_OPTIONS = {
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_TTS_MODEL,
     CONF_TEMPERATURE: 0.8,
+    CONF_VOICE_MOOD: DEFAULT_VOICE_MOOD,
+    CONF_SPEAKING_PACE: DEFAULT_SPEAKING_PACE,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS = {

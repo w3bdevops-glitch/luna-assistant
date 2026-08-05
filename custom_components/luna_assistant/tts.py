@@ -25,9 +25,15 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_SPEAKING_PACE,
+    CONF_VOICE_MOOD,
     CONF_TEMPERATURE,
     LOGGER,
+    DEFAULT_SPEAKING_PACE,
     DEFAULT_TTS_STYLE_PROMPT,
+    DEFAULT_VOICE_MOOD,
+    SPEAKING_PACE_PROMPTS,
+    VOICE_MOOD_PROMPTS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TTS_MODEL,
 )
@@ -248,7 +254,21 @@ class GoogleGenerativeAITextToSpeechEntity(
             style_prompt = self.subentry.data.get(
                 CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
             )
-            styled_message = f"{style_prompt}\n\n{message}" if style_prompt else message
+            voice_mood = self.subentry.data.get(
+                CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD
+            )
+            speaking_pace = self.subentry.data.get(
+                CONF_SPEAKING_PACE, DEFAULT_SPEAKING_PACE
+            )
+            mood_text = VOICE_MOOD_PROMPTS.get(voice_mood, "")
+            pace_text = SPEAKING_PACE_PROMPTS.get(speaking_pace, "")
+            preset_style = (
+                f"Use uma interpretação {mood_text}. {pace_text}".strip()
+            )
+            full_style = " ".join(
+                part for part in (style_prompt, preset_style) if part
+            )
+            styled_message = f"{full_style}\n\n{message}" if full_style else message
 
             response = await self._genai_client.aio.models.generate_content(
                 model=self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_TTS_MODEL),

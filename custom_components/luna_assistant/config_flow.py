@@ -39,6 +39,11 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_LATENCY_PROFILE,
+    CONF_PERSONALITY,
+    CONF_RESPONSE_LENGTH,
+    CONF_SPEAKING_PACE,
+    CONF_VOICE_MOOD,
     CONF_DANGEROUS_BLOCK_THRESHOLD,
     CONF_HARASSMENT_BLOCK_THRESHOLD,
     CONF_HATE_BLOCK_THRESHOLD,
@@ -52,6 +57,11 @@ from .const import (
     CONF_TOP_P,
     CONF_USE_GOOGLE_SEARCH_TOOL,
     DEFAULT_AI_TASK_NAME,
+    DEFAULT_LATENCY_PROFILE,
+    DEFAULT_PERSONALITY,
+    DEFAULT_RESPONSE_LENGTH,
+    DEFAULT_SPEAKING_PACE,
+    DEFAULT_VOICE_MOOD,
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_STT_NAME,
     DEFAULT_STT_PROMPT,
@@ -357,6 +367,46 @@ async def google_generative_ai_config_option_schema(
                 ): SelectSelector(
                     SelectSelectorConfig(options=hass_apis, multiple=True)
                 ),
+                vol.Optional(
+                    CONF_PERSONALITY,
+                    default=options.get(CONF_PERSONALITY, DEFAULT_PERSONALITY),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            "playful",
+                            "warm",
+                            "direct",
+                            "teacher",
+                            "technical",
+                        ],
+                        translation_key=CONF_PERSONALITY,
+                    )
+                ),
+                vol.Optional(
+                    CONF_RESPONSE_LENGTH,
+                    default=options.get(
+                        CONF_RESPONSE_LENGTH, DEFAULT_RESPONSE_LENGTH
+                    ),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=["very_short", "short", "balanced", "detailed"],
+                        translation_key=CONF_RESPONSE_LENGTH,
+                    )
+                ),
+                vol.Optional(
+                    CONF_LATENCY_PROFILE,
+                    default=options.get(
+                        CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
+                    ),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=["fast", "balanced", "quality"],
+                        translation_key=CONF_LATENCY_PROFILE,
+                    )
+                ),
             }
         )
     elif subentry_type == "stt":
@@ -381,6 +431,34 @@ async def google_generative_ai_config_option_schema(
                         )
                     },
                 ): TemplateSelector(),
+                vol.Optional(
+                    CONF_VOICE_MOOD,
+                    default=options.get(CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            "cheerful",
+                            "warm",
+                            "calm",
+                            "enthusiastic",
+                            "professional",
+                        ],
+                        translation_key=CONF_VOICE_MOOD,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SPEAKING_PACE,
+                    default=options.get(
+                        CONF_SPEAKING_PACE, DEFAULT_SPEAKING_PACE
+                    ),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=["slow", "natural", "fast"],
+                        translation_key=CONF_SPEAKING_PACE,
+                    )
+                ),
             }
         )
 

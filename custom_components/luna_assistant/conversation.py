@@ -12,7 +12,18 @@ from homeassistant.const import CONF_LLM_HASS_API, CONF_PROMPT, MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
+from .const import (
+    CONF_LATENCY_PROFILE,
+    CONF_PERSONALITY,
+    CONF_RESPONSE_LENGTH,
+    DEFAULT_LATENCY_PROFILE,
+    DEFAULT_PERSONALITY,
+    DEFAULT_RESPONSE_LENGTH,
+    DOMAIN,
+    LATENCY_PROFILE_PROMPTS,
+    PERSONALITY_PROMPTS,
+    RESPONSE_LENGTH_PROMPTS,
+)
 from .entity import GoogleGenerativeAILLMBaseEntity
 
 
@@ -76,11 +87,29 @@ class GoogleGenerativeAIConversationEntity(
         """Call the API."""
         options = self.subentry.data
 
+        personality = options.get(CONF_PERSONALITY, DEFAULT_PERSONALITY)
+        response_length = options.get(
+            CONF_RESPONSE_LENGTH, DEFAULT_RESPONSE_LENGTH
+        )
+        latency_profile = options.get(CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE)
+
+        base_prompt = options.get(CONF_PROMPT, "")
+        preset_prompt = " ".join(
+            part
+            for part in (
+                PERSONALITY_PROMPTS.get(personality),
+                RESPONSE_LENGTH_PROMPTS.get(response_length),
+                LATENCY_PROFILE_PROMPTS.get(latency_profile),
+            )
+            if part
+        )
+        effective_prompt = f"{base_prompt} {preset_prompt}".strip()
+
         try:
             await chat_log.async_provide_llm_data(
                 user_input.as_llm_context(DOMAIN),
                 options.get(CONF_LLM_HASS_API),
-                options.get(CONF_PROMPT),
+                effective_prompt,
                 user_input.extra_system_prompt,
             )
         except conversation.ConverseError as err:

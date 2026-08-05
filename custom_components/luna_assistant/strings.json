@@ -55,7 +55,10 @@
             "top_p": "Top P",
             "enable_google_search_tool": "Enable Google Search tool",
             "llm_hass_api": "Control Home Assistant",
-            "prompt": "Instructions"
+            "prompt": "Instructions",
+            "personality": "Personality",
+            "response_length": "Response length",
+            "latency_profile": "Latency profile"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
@@ -135,7 +138,9 @@
             "thinking_level": "Thinking level",
             "top_k": "Top K",
             "top_p": "Top P",
-            "prompt": "Voice style instructions"
+            "prompt": "Voice style instructions",
+            "voice_mood": "Voice mood",
+            "speaking_pace": "Speaking pace"
           },
           "data_description": {
             "prompt": "Describe tone, pace, emotion, and speaking style. Luna sends these instructions to the TTS model before the response.",
@@ -194,6 +199,46 @@
         "low": "Low",
         "medium": "Medium",
         "minimal": "Minimal"
+      }
+    },
+    "personality": {
+      "options": {
+        "playful": "Playful",
+        "warm": "Warm",
+        "direct": "Direct",
+        "teacher": "Teacher",
+        "technical": "Technical"
+      }
+    },
+    "response_length": {
+      "options": {
+        "very_short": "Very short",
+        "short": "Short",
+        "balanced": "Balanced",
+        "detailed": "Detailed"
+      }
+    },
+    "latency_profile": {
+      "options": {
+        "fast": "Fast",
+        "balanced": "Balanced",
+        "quality": "Quality"
+      }
+    },
+    "voice_mood": {
+      "options": {
+        "cheerful": "Cheerful",
+        "warm": "Warm",
+        "calm": "Calm",
+        "enthusiastic": "Enthusiastic",
+        "professional": "Professional"
+      }
+    },
+    "speaking_pace": {
+      "options": {
+        "slow": "Slow",
+        "natural": "Natural",
+        "fast": "Fast"
       }
     }
   }

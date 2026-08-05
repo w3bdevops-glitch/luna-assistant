@@ -19,5 +19,5 @@
   "requirements": [
     "google-genai==2.16.0"
   ],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

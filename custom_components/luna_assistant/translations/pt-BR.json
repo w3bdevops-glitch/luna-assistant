@@ -55,7 +55,10 @@
             "top_p": "Top P",
             "enable_google_search_tool": "Enable Google Search tool",
             "llm_hass_api": "Control Home Assistant",
-            "prompt": "Instructions"
+            "prompt": "Instructions",
+            "personality": "Personalidade",
+            "response_length": "Tamanho da resposta",
+            "latency_profile": "Perfil de latência"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
@@ -135,7 +138,9 @@
             "thinking_level": "Thinking level",
             "top_k": "Top K",
             "top_p": "Top P",
-            "prompt": "Estilo e instruções da voz"
+            "prompt": "Estilo e instruções da voz",
+            "voice_mood": "Humor da voz",
+            "speaking_pace": "Ritmo da fala"
           },
           "data_description": {
             "prompt": "Descreva o tom, ritmo, emoção e forma de falar. A Luna envia essas instruções ao modelo antes do texto.",
@@ -194,6 +199,46 @@
         "low": "Low",
         "medium": "Medium",
         "minimal": "Minimal"
+      }
+    },
+    "personality": {
+      "options": {
+        "playful": "Brincalhona",
+        "warm": "Acolhedora",
+        "direct": "Direta",
+        "teacher": "Professora",
+        "technical": "Técnica"
+      }
+    },
+    "response_length": {
+      "options": {
+        "very_short": "Muito curta",
+        "short": "Curta",
+        "balanced": "Equilibrada",
+        "detailed": "Detalhada"
+      }
+    },
+    "latency_profile": {
+      "options": {
+        "fast": "Rápido",
+        "balanced": "Equilibrado",
+        "quality": "Qualidade"
+      }
+    },
+    "voice_mood": {
+      "options": {
+        "cheerful": "Alegre",
+        "warm": "Acolhedora",
+        "calm": "Calma",
+        "enthusiastic": "Entusiasmada",
+        "professional": "Profissional"
+      }
+    },
+    "speaking_pace": {
+      "options": {
+        "slow": "Lento",
+        "natural": "Natural",
+        "fast": "Rápido"
       }
     }
   }

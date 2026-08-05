@@ -1,6 +1,6 @@
 # Luna Assistant
 
-## Current version: 0.2.0
+## Current version: 0.3.0
 
 Custom Home Assistant integration derived from the official Google Gemini
 integration.
@@ -52,3 +52,20 @@ delivery. This instruction is sent to Gemini TTS together with the response.
 Existing 0.1.0 entries may keep their saved settings. Reconfigure each Luna
 sub-service, or remove and add the Luna integration again, to apply all new
 defaults.
+
+
+## What is new in 0.3.0
+
+Luna Conversation now exposes:
+
+- Personality: Playful, Warm, Direct, Teacher or Technical
+- Response length: Very short, Short, Balanced or Detailed
+- Latency profile: Fast, Balanced or Quality
+
+Luna TTS now exposes:
+
+- Voice mood: Cheerful, Warm, Calm, Enthusiastic or Professional
+- Speaking pace: Slow, Natural or Fast
+
+These presets are combined with the editable prompt fields, so advanced
+users keep full control while everyday adjustments become much easier.
