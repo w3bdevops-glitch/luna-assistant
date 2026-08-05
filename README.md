@@ -1,6 +1,6 @@
 # Luna Assistant
 
-## Current version: 0.3.0
+## Current version: 0.3.1
 
 Custom Home Assistant integration derived from the official Google Gemini
 integration.
@@ -69,3 +69,10 @@ Luna TTS now exposes:
 
 These presets are combined with the editable prompt fields, so advanced
 users keep full control while everyday adjustments become much easier.
+
+
+## 0.3.1 compatibility hotfix
+
+Home Assistant Core 2026.7.4 pins `google-genai==1.59.0`. Luna Assistant
+now uses the same version to avoid a shared dependency conflict with the
+official Google Gemini integration.

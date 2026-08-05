@@ -17,7 +17,7 @@
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "requirements": [
-    "google-genai==2.16.0"
+    "google-genai==1.59.0"
   ],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
