@@ -1,0 +1,10 @@
+{
+  "domain": "luna_assistant",
+  "name": "Luna Assistant",
+  "version": "0.1.0",
+  "config_flow": true,
+  "documentation": "https://github.com/w3bdevops-glitch/luna-assistant",
+  "issue_tracker": "https://github.com/w3bdevops-glitch/luna-assistant/issues",
+  "codeowners": ["@w3bdevops-glitch"],
+  "integration_type": "service"
+}
