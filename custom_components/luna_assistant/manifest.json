@@ -1,0 +1,23 @@
+{
+  "domain": "luna_assistant",
+  "name": "Luna Assistant",
+  "after_dependencies": [
+    "assist_pipeline",
+    "intent"
+  ],
+  "codeowners": [
+    "@w3bdevops-glitch"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "conversation"
+  ],
+  "documentation": "https://github.com/w3bdevops-glitch/luna-assistant",
+  "issue_tracker": "https://github.com/w3bdevops-glitch/luna-assistant/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [
+    "google-genai==2.16.0"
+  ],
+  "version": "0.1.0"
+}

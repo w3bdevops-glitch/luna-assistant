@@ -1,0 +1,199 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This API key is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    },
+    "error": {
+      "cannot_connect": "Unable to connect.",
+      "invalid_auth": "Invalid API key.",
+      "unknown": "Unexpected error."
+    },
+    "step": {
+      "api": {
+        "data": {
+          "api_key": "API key"
+        },
+        "description": "Get your API key from [Google AI Studio]({api_key_url}).",
+        "title": "Connect Luna Assistant"
+      },
+      "reauth_confirm": {
+        "description": "Your current API key is no longer valid. Enter a new key.",
+        "title": "Re-authenticate"
+      }
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "abort": {
+        "entry_not_loaded": "The integration must be enabled before adding or editing services.",
+        "reconfigure_successful": "Configuration updated."
+      },
+      "entry_type": "Conversation agent",
+      "error": {
+        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigure conversation agent",
+        "user": "Add conversation agent"
+      },
+      "step": {
+        "set_options": {
+          "data": {
+            "chat_model": "Model",
+            "dangerous_block_threshold": "Dangerous content threshold",
+            "harassment_block_threshold": "Harassment threshold",
+            "hate_block_threshold": "Hate threshold",
+            "max_tokens": "Maximum output tokens",
+            "name": "Name",
+            "recommended": "Use recommended settings",
+            "sexual_block_threshold": "Sexual content threshold",
+            "temperature": "Temperature",
+            "thinking_budget": "Thinking budget",
+            "thinking_level": "Thinking level",
+            "top_k": "Top K",
+            "top_p": "Top P",
+            "enable_google_search_tool": "Enable Google Search tool",
+            "llm_hass_api": "Control Home Assistant",
+            "prompt": "Instructions"
+          },
+          "data_description": {
+            "prompt": "Instructions sent to the model.",
+            "thinking_budget": "Reasoning token budget for Gemini 2.5.",
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+          }
+        }
+      }
+    },
+    "stt": {
+      "abort": {
+        "entry_not_loaded": "The integration must be enabled before adding or editing services.",
+        "reconfigure_successful": "Configuration updated."
+      },
+      "entry_type": "Speech-to-text",
+      "error": {
+        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigure speech-to-text",
+        "user": "Add speech-to-text"
+      },
+      "step": {
+        "set_options": {
+          "data": {
+            "chat_model": "Model",
+            "dangerous_block_threshold": "Dangerous content threshold",
+            "harassment_block_threshold": "Harassment threshold",
+            "hate_block_threshold": "Hate threshold",
+            "max_tokens": "Maximum output tokens",
+            "name": "Name",
+            "recommended": "Use recommended settings",
+            "sexual_block_threshold": "Sexual content threshold",
+            "temperature": "Temperature",
+            "thinking_budget": "Thinking budget",
+            "thinking_level": "Thinking level",
+            "top_k": "Top K",
+            "top_p": "Top P",
+            "prompt": "Transcription instructions"
+          },
+          "data_description": {
+            "prompt": "Instructions sent to the model.",
+            "thinking_budget": "Reasoning token budget for Gemini 2.5.",
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+          }
+        }
+      }
+    },
+    "tts": {
+      "abort": {
+        "entry_not_loaded": "The integration must be enabled before adding or editing services.",
+        "reconfigure_successful": "Configuration updated."
+      },
+      "entry_type": "Text-to-speech",
+      "error": {
+        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigure text-to-speech",
+        "user": "Add text-to-speech"
+      },
+      "step": {
+        "set_options": {
+          "data": {
+            "chat_model": "Model",
+            "dangerous_block_threshold": "Dangerous content threshold",
+            "harassment_block_threshold": "Harassment threshold",
+            "hate_block_threshold": "Hate threshold",
+            "max_tokens": "Maximum output tokens",
+            "name": "Name",
+            "recommended": "Use recommended settings",
+            "sexual_block_threshold": "Sexual content threshold",
+            "temperature": "Temperature",
+            "thinking_budget": "Thinking budget",
+            "thinking_level": "Thinking level",
+            "top_k": "Top K",
+            "top_p": "Top P"
+          },
+          "data_description": {
+            "prompt": "Instructions sent to the model.",
+            "thinking_budget": "Reasoning token budget for Gemini 2.5.",
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+          }
+        }
+      }
+    },
+    "ai_task_data": {
+      "abort": {
+        "entry_not_loaded": "The integration must be enabled before adding or editing services.",
+        "reconfigure_successful": "Configuration updated."
+      },
+      "entry_type": "AI task",
+      "error": {
+        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigure ai task",
+        "user": "Add ai task"
+      },
+      "step": {
+        "set_options": {
+          "data": {
+            "chat_model": "Model",
+            "dangerous_block_threshold": "Dangerous content threshold",
+            "harassment_block_threshold": "Harassment threshold",
+            "hate_block_threshold": "Hate threshold",
+            "max_tokens": "Maximum output tokens",
+            "name": "Name",
+            "recommended": "Use recommended settings",
+            "sexual_block_threshold": "Sexual content threshold",
+            "temperature": "Temperature",
+            "thinking_budget": "Thinking budget",
+            "thinking_level": "Thinking level",
+            "top_k": "Top K",
+            "top_p": "Top P"
+          },
+          "data_description": {
+            "prompt": "Instructions sent to the model.",
+            "thinking_budget": "Reasoning token budget for Gemini 2.5.",
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "thinking_level": {
+      "options": {
+        "auto": "Auto",
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium",
+        "minimal": "Minimal"
+      }
+    }
+  }
+}

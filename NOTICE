@@ -1,0 +1,8 @@
+Luna Assistant
+Copyright 2026 w3bdevops-glitch
+
+This project contains code derived from Home Assistant Core's
+google_generative_ai_conversation integration.
+Home Assistant Core is licensed under the Apache License, Version 2.0.
+The derived files have been modified, including the integration domain,
+branding, default TTS model, HACS packaging, and translations.
