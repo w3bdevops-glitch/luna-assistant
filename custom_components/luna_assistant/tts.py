@@ -18,6 +18,7 @@ from homeassistant.components.tts import (
     Voice,
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.const import CONF_PROMPT
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -26,6 +27,7 @@ from .const import (
     CONF_CHAT_MODEL,
     CONF_TEMPERATURE,
     LOGGER,
+    DEFAULT_TTS_STYLE_PROMPT,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TTS_MODEL,
 )
@@ -243,9 +245,14 @@ class GoogleGenerativeAITextToSpeechEntity(
             return data, mime_type
 
         try:
+            style_prompt = self.subentry.data.get(
+                CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
+            )
+            styled_message = f"{style_prompt}\n\n{message}" if style_prompt else message
+
             response = await self._genai_client.aio.models.generate_content(
                 model=self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_TTS_MODEL),
-                contents=message,
+                contents=styled_message,
                 config=config,
             )
 

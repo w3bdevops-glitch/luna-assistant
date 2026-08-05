@@ -134,10 +134,11 @@
             "thinking_budget": "Thinking budget",
             "thinking_level": "Thinking level",
             "top_k": "Top K",
-            "top_p": "Top P"
+            "top_p": "Top P",
+            "prompt": "Voice style instructions"
           },
           "data_description": {
-            "prompt": "Instructions sent to the model.",
+            "prompt": "Describe tone, pace, emotion, and speaking style. Luna sends these instructions to the TTS model before the response.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
             "enable_google_search_tool": "Works only when no Home Assistant control API is selected."

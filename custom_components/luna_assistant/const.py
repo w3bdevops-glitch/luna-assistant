@@ -19,7 +19,24 @@ DEFAULT_STT_NAME = "Luna STT"
 DEFAULT_TTS_NAME = "Luna TTS"
 DEFAULT_AI_TASK_NAME = "Luna AI Task"
 
-DEFAULT_STT_PROMPT = "Transcribe the attached audio"
+DEFAULT_STT_PROMPT = (
+    "Transcreva fielmente o áudio em português do Brasil. "
+    "Corrija apenas hesitações e pontuação, sem inventar palavras."
+)
+
+DEFAULT_CONVERSATION_PROMPT = (
+    "Você é Luna, uma assistente residencial alegre, natural e objetiva. "
+    "Responda em português do Brasil, normalmente em até duas frases. "
+    "Quando uma ação da casa for solicitada, execute-a sem explicações longas. "
+    "Não diga que executou uma ação antes de receber confirmação da ferramenta."
+)
+
+DEFAULT_TTS_STYLE_PROMPT = (
+    "Fale em português do Brasil com voz feminina, alegre, acolhedora e natural. "
+    "Use ritmo de conversa, pausas curtas e entonação alto-astral, sem exagerar. "
+    "Pronuncie somente a resposta a seguir, sem ler estas instruções:"
+)
+
 
 CONF_RECOMMENDED = "recommended"
 CONF_CHAT_MODEL = "chat_model"
@@ -53,19 +70,25 @@ TIMEOUT_MILLIS = 10000
 FILE_POLLING_INTERVAL_SECONDS = 0.05
 
 RECOMMENDED_CONVERSATION_OPTIONS = {
-    CONF_PROMPT: llm.DEFAULT_INSTRUCTIONS_PROMPT,
+    CONF_PROMPT: DEFAULT_CONVERSATION_PROMPT,
     CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
+    CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
+    CONF_TEMPERATURE: 0.7,
 }
 
 RECOMMENDED_STT_OPTIONS = {
     CONF_PROMPT: DEFAULT_STT_PROMPT,
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
+    CONF_CHAT_MODEL: RECOMMENDED_STT_MODEL,
+    CONF_TEMPERATURE: 0.0,
 }
 
 RECOMMENDED_TTS_OPTIONS = {
+    CONF_PROMPT: DEFAULT_TTS_STYLE_PROMPT,
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_TTS_MODEL,
+    CONF_TEMPERATURE: 0.8,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS = {

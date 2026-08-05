@@ -1,5 +1,7 @@
 # Luna Assistant
 
+## Current version: 0.2.0
+
 Custom Home Assistant integration derived from the official Google Gemini
 integration.
 
@@ -35,3 +37,18 @@ Gemini integration installed until Luna Assistant is tested successfully.
 
 Derived from Home Assistant Core's
 `google_generative_ai_conversation` integration under Apache-2.0.
+
+
+## What is new in 0.2.0
+
+Open the Luna Assistant integration, choose the service and use its
+**Configure** action. Disable/enable recommended settings as needed and select
+the Gemini model from the list returned by your Google account.
+
+The Luna TTS service now has an editable **Voice style instructions** field.
+The default asks for a cheerful, welcoming, natural Brazilian Portuguese
+delivery. This instruction is sent to Gemini TTS together with the response.
+
+Existing 0.1.0 entries may keep their saved settings. Reconfigure each Luna
+sub-service, or remove and add the Luna integration again, to apply all new
+defaults.

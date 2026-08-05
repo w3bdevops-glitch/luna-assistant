@@ -55,6 +55,7 @@ from .const import (
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_STT_NAME,
     DEFAULT_STT_PROMPT,
+    DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
     DOMAIN,
@@ -365,6 +366,19 @@ async def google_generative_ai_config_option_schema(
                     CONF_PROMPT,
                     description={
                         "suggested_value": options.get(CONF_PROMPT, DEFAULT_STT_PROMPT)
+                    },
+                ): TemplateSelector(),
+            }
+        )
+    elif subentry_type == "tts":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_PROMPT,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
+                        )
                     },
                 ): TemplateSelector(),
             }

@@ -134,10 +134,11 @@
             "thinking_budget": "Thinking budget",
             "thinking_level": "Thinking level",
             "top_k": "Top K",
-            "top_p": "Top P"
+            "top_p": "Top P",
+            "prompt": "Estilo e instruções da voz"
           },
           "data_description": {
-            "prompt": "Instructions sent to the model.",
+            "prompt": "Descreva o tom, ritmo, emoção e forma de falar. A Luna envia essas instruções ao modelo antes do texto.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
             "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
