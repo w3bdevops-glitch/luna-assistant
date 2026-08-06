@@ -27,6 +27,8 @@ from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API, CONF_NAME, CONF
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import llm
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -35,24 +37,16 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
-    EntitySelector,
-    EntitySelectorConfig,
 )
 
 from .const import (
-    CONF_CHAT_MODEL,
     AUDIO_OUTPUT_ATOM,
-    AUDIO_OUTPUT_EXTERNAL,
+    AUDIO_OUTPUT_GOOGLE_NEST,
+    AUDIO_OUTPUT_MEDIA_PLAYER,
     CONF_AUDIO_OUTPUT,
-    CONF_MEDIA_PLAYER_ENTITY_ID,
-    CONF_EXTERNAL_VOLUME,
-    CONF_EXTERNAL_ANNOUNCE,
-    CONF_FALLBACK_TO_ATOM,
-    DEFAULT_AUDIO_OUTPUT,
-    DEFAULT_EXTERNAL_VOLUME,
-    DEFAULT_EXTERNAL_ANNOUNCE,
-    DEFAULT_FALLBACK_TO_ATOM,
+    CONF_CHAT_MODEL,
     CONF_LATENCY_PROFILE,
+    CONF_OUTPUT_MEDIA_PLAYER,
     CONF_PERSONALITY,
     CONF_RESPONSE_LENGTH,
     CONF_SPEAKING_PACE,
@@ -70,6 +64,7 @@ from .const import (
     CONF_TOP_P,
     CONF_USE_GOOGLE_SEARCH_TOOL,
     DEFAULT_AI_TASK_NAME,
+    DEFAULT_AUDIO_OUTPUT,
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PERSONALITY,
     DEFAULT_RESPONSE_LENGTH,
@@ -131,7 +126,7 @@ class GoogleGenerativeAIConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Google Generative AI Conversation."""
 
     VERSION = 2
-    MINOR_VERSION = 4
+    MINOR_VERSION = 6
 
     async def async_step_api(
         self, user_input: dict[str, Any] | None = None
@@ -288,12 +283,26 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
                 if not user_input.get(CONF_LLM_HASS_API):
                     user_input.pop(CONF_LLM_HASS_API, None)
-                # Don't allow to save options that enable the
-                # Google Search tool with an Assist API
-                if not (
+
+                if (
+                    self._subentry_type == "conversation"
+                    and user_input.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT)
+                    != AUDIO_OUTPUT_ATOM
+                    and not user_input.get(CONF_OUTPUT_MEDIA_PLAYER)
+                ):
+                    errors[CONF_OUTPUT_MEDIA_PLAYER] = "media_player_required"
+
+                # Don't allow Google Search together with a Home Assistant
+                # control API. The Fast profile also disables search at runtime.
+                if (
                     user_input.get(CONF_LLM_HASS_API)
                     and user_input.get(CONF_USE_GOOGLE_SEARCH_TOOL, False) is True
                 ):
+                    errors[CONF_USE_GOOGLE_SEARCH_TOOL] = (
+                        "invalid_google_search_option"
+                    )
+
+                if not errors:
                     if self._is_new:
                         return self.async_create_entry(
                             title=user_input.pop(CONF_NAME),
@@ -305,7 +314,6 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                         self._get_reconfigure_subentry(),
                         data=user_input,
                     )
-                errors[CONF_USE_GOOGLE_SEARCH_TOOL] = "invalid_google_search_option"
 
             # Re-render the options again, now with the recommended options shown/hidden
             self.last_rendered_recommended = user_input[CONF_RECOMMENDED]
@@ -422,49 +430,30 @@ async def google_generative_ai_config_option_schema(
                 ),
                 vol.Optional(
                     CONF_AUDIO_OUTPUT,
-                    default=options.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT),
+                    default=options.get(
+                        CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT
+                    ),
                 ): SelectSelector(
                     SelectSelectorConfig(
                         mode=SelectSelectorMode.DROPDOWN,
-                        options=[AUDIO_OUTPUT_ATOM, AUDIO_OUTPUT_EXTERNAL],
+                        options=[
+                            AUDIO_OUTPUT_ATOM,
+                            AUDIO_OUTPUT_GOOGLE_NEST,
+                            AUDIO_OUTPUT_MEDIA_PLAYER,
+                        ],
                         translation_key=CONF_AUDIO_OUTPUT,
                     )
                 ),
                 vol.Optional(
-                    CONF_MEDIA_PLAYER_ENTITY_ID,
+                    CONF_OUTPUT_MEDIA_PLAYER,
                     description={
                         "suggested_value": options.get(
-                            CONF_MEDIA_PLAYER_ENTITY_ID
+                            CONF_OUTPUT_MEDIA_PLAYER
                         )
                     },
                 ): EntitySelector(
                     EntitySelectorConfig(domain="media_player")
                 ),
-                vol.Optional(
-                    CONF_EXTERNAL_VOLUME,
-                    default=options.get(
-                        CONF_EXTERNAL_VOLUME, DEFAULT_EXTERNAL_VOLUME
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.05,
-                        max=1.0,
-                        step=0.05,
-                        mode=NumberSelectorMode.SLIDER,
-                    )
-                ),
-                vol.Optional(
-                    CONF_EXTERNAL_ANNOUNCE,
-                    default=options.get(
-                        CONF_EXTERNAL_ANNOUNCE, DEFAULT_EXTERNAL_ANNOUNCE
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_FALLBACK_TO_ATOM,
-                    default=options.get(
-                        CONF_FALLBACK_TO_ATOM, DEFAULT_FALLBACK_TO_ATOM
-                    ),
-                ): bool,
             }
         )
     elif subentry_type == "stt":

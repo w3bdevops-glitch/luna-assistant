@@ -31,7 +31,8 @@
       },
       "entry_type": "Conversation agent",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
+        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected.",
+        "media_player_required": "Selecione um media player para usar Google Nest ou Outro media player."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure conversation agent",
@@ -58,13 +59,17 @@
             "prompt": "Instructions",
             "personality": "Personalidade",
             "response_length": "Tamanho da resposta",
-            "latency_profile": "Perfil de latência"
+            "latency_profile": "Perfil de latência",
+            "audio_output": "Saída de áudio",
+            "output_media_player": "Media player de saída"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Works only when no Home Assistant control API is selected.",
+            "audio_output": "Atom usa o Assist Pipeline normal. Google Nest e Outro media player enviam o TTS da Luna para a entidade media_player selecionada.",
+            "output_media_player": "Obrigatório para Google Nest ou Outro media player. O Atom é usado como fallback quando o destino não existe, está indisponível ou o serviço TTS falha."
           }
         }
       }
@@ -239,6 +244,13 @@
         "slow": "Lento",
         "natural": "Natural",
         "fast": "Rápido"
+      }
+    },
+    "audio_output": {
+      "options": {
+        "atom": "Atom",
+        "google_nest": "Google Nest",
+        "media_player": "Outro media player"
       }
     }
   }

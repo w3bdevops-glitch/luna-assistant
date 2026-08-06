@@ -51,6 +51,7 @@ from .const import (
     CONF_DANGEROUS_BLOCK_THRESHOLD,
     CONF_HARASSMENT_BLOCK_THRESHOLD,
     CONF_HATE_BLOCK_THRESHOLD,
+    CONF_LATENCY_PROFILE,
     CONF_MAX_TOKENS,
     CONF_SEXUAL_BLOCK_THRESHOLD,
     CONF_TEMPERATURE,
@@ -59,8 +60,11 @@ from .const import (
     CONF_TOP_K,
     CONF_TOP_P,
     CONF_USE_GOOGLE_SEARCH_TOOL,
+    DEFAULT_LATENCY_PROFILE,
     DOMAIN,
     FILE_POLLING_INTERVAL_SECONDS,
+    LATENCY_PROFILE_MAX_TOKENS,
+    LATENCY_PROFILE_THINKING_LEVEL,
     LOGGER,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_HARM_BLOCK_THRESHOLD,
@@ -596,11 +600,30 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
         # with how the model decides to use some tools, or
         # entities for example weather entity may be
         # disregarded if the model chooses to Google it.
-        if options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True:
+        latency_profile = options.get(
+            CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
+        )
+
+        if (
+            options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True
+            and latency_profile != "fast"
+        ):
             tools = tools or []
             tools.append(Tool(google_search=GoogleSearch()))
+        elif (
+            options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True
+            and latency_profile == "fast"
+        ):
+            LOGGER.debug(
+                "Google Search disabled for this request by Fast latency profile"
+            )
 
-        model_name = options.get(CONF_CHAT_MODEL, self.default_model)
+        configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
+        model_name = (
+            RECOMMENDED_CHAT_MODEL
+            if latency_profile == "fast"
+            else configured_model
+        )
         # Avoid INVALID_ARGUMENT Developer instruction is not enabled for <model>
         supports_system_instruction = (
             "gemma" not in model_name
@@ -736,23 +759,52 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
     ) -> GenerateContentConfig:
         """Create the GenerateContentConfig for the LLM."""
         options = self.subentry.data
-        model = options.get(CONF_CHAT_MODEL, self.default_model)
+        latency_profile = options.get(
+            CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
+        )
+        configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
+        model = (
+            RECOMMENDED_CHAT_MODEL
+            if latency_profile == "fast"
+            else configured_model
+        )
+
+        configured_thinking_level = options.get(
+            CONF_THINKING_LEVEL, RECOMMENDED_THINKING_LEVEL
+        )
+        profile_thinking_level = LATENCY_PROFILE_THINKING_LEVEL.get(
+            latency_profile, configured_thinking_level
+        )
         thinking_config = _create_thinking_config(
             model,
             int(options.get(CONF_THINKING_BUDGET, RECOMMENDED_THINKING_BUDGET)),
-            options.get(CONF_THINKING_LEVEL, RECOMMENDED_THINKING_LEVEL),
+            (
+                configured_thinking_level
+                if profile_thinking_level == "auto"
+                else profile_thinking_level
+            ),
         )
+        if latency_profile == "fast" and thinking_config is not None:
+            thinking_config.include_thoughts = False
+
+        configured_max_tokens = int(
+            options.get(
+                CONF_MAX_TOKENS,
+                default_max_tokens
+                if default_max_tokens is not None
+                else RECOMMENDED_MAX_TOKENS,
+            )
+        )
+        profile_max_tokens = LATENCY_PROFILE_MAX_TOKENS.get(
+            latency_profile, configured_max_tokens
+        )
+        max_output_tokens = min(configured_max_tokens, profile_max_tokens)
 
         return GenerateContentConfig(
             temperature=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
             top_k=options.get(CONF_TOP_K, RECOMMENDED_TOP_K),
             top_p=options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
-            max_output_tokens=options.get(
-                CONF_MAX_TOKENS,
-                default_max_tokens
-                if default_max_tokens is not None
-                else RECOMMENDED_MAX_TOKENS,
-            ),
+            max_output_tokens=max_output_tokens,
             safety_settings=[
                 SafetySetting(
                     category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,

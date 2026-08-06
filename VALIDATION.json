@@ -1,0 +1,23 @@
+{
+  "name": "Luna Assistant",
+  "version": "0.3.4-stable",
+  "home_assistant_target": "2026.7.4",
+  "checks": {
+    "manifest_version_0_3_4": true,
+    "config_minor_version_6": true,
+    "three_output_options": true,
+    "media_player_selector": true,
+    "required_target_validation": true,
+    "tts_speak_service": true,
+    "clear_atom_only_after_success": true,
+    "atom_default": true,
+    "firmware_external_mode_absent": true,
+    "fast_profile_preserved": true,
+    "tts_3_1_preserved": true
+  },
+  "runtime_test_required": [
+    "Home Assistant config flow rendering",
+    "Google Nest playback",
+    "Fallback to Atom when external target is unavailable"
+  ]
+}
