@@ -76,3 +76,20 @@ users keep full control while everyday adjustments become much easier.
 Home Assistant Core 2026.7.4 pins `google-genai==1.59.0`. Luna Assistant
 now uses the same version to avoid a shared dependency conflict with the
 official Google Gemini integration.
+
+
+## Saída de áudio externa
+
+Edite a subentrada **Luna Conversation** e escolha:
+
+- Saída de áudio: Atom ou media player externo
+- Media player externo
+- Volume
+- Usar como anúncio
+- Fallback para o Atom
+
+Com saída externa, a resposta é enviada por `tts.speak` ao player selecionado
+e removida da resposta do satélite para evitar áudio duplicado.
+
+O firmware Luna Satellite v0.2.0-alpha envia `esphome.luna_barge_in` quando
+detecta nova fala. A integração usa esse evento para parar o player externo.

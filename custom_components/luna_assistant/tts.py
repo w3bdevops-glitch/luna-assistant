@@ -2,7 +2,9 @@
 # Derived from Home Assistant Core's Google Gemini integration,
 # licensed under the Apache License 2.0.
 
-"""Text to speech support for Google Generative AI."""
+"""Text-to-speech support for Luna Assistant."""
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, override
@@ -26,19 +28,28 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import (
     CONF_CHAT_MODEL,
     CONF_SPEAKING_PACE,
-    CONF_VOICE_MOOD,
     CONF_TEMPERATURE,
-    LOGGER,
+    CONF_VOICE_MOOD,
     DEFAULT_SPEAKING_PACE,
     DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_VOICE_MOOD,
-    SPEAKING_PACE_PROMPTS,
-    VOICE_MOOD_PROMPTS,
+    LOGGER,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TTS_MODEL,
+    SPEAKING_PACE_PROMPTS,
+    VOICE_MOOD_PROMPTS,
 )
 from .entity import GoogleGenerativeAILLMBaseEntity
-from .helpers import convert_to_wav
+from .helpers import (
+    convert_to_wav,
+    extract_audio_parts,
+    validate_wav,
+)
+
+_LEGACY_TTS_MODELS = {
+    "gemini-2.5-flash-preview-tts",
+    "models/gemini-2.5-flash-preview-tts",
+}
 
 
 async def async_setup_entry(
@@ -46,7 +57,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up TTS entities."""
+    """Set up Luna TTS entities."""
     for subentry in config_entry.subentries.values():
         if subentry.subentry_type != "tts":
             continue
@@ -60,12 +71,10 @@ async def async_setup_entry(
 class GoogleGenerativeAITextToSpeechEntity(
     TextToSpeechEntity, GoogleGenerativeAILLMBaseEntity
 ):
-    """Google Generative AI text-to-speech entity."""
+    """Luna Gemini text-to-speech entity."""
 
     _attr_supported_options = [ATTR_VOICE]
-    # See https://ai.google.dev/gemini-api/docs/speech-generation#languages
-    # Note the documentation might not be up to date, e.g. el-GR is not listed
-    # there but is supported.
+
     _attr_supported_languages = [
         "af-ZA",
         "am-ET",
@@ -149,10 +158,10 @@ class GoogleGenerativeAITextToSpeechEntity(
         "ur-PK",
         "vi-VN",
     ]
-    # Unused, but required by base class.
-    # The Gemini TTS models detect the input language automatically.
-    _attr_default_language = "en-US"
-    # See https://ai.google.dev/gemini-api/docs/speech-generation#voices
+
+    # Gemini detects the input language automatically.
+    _attr_default_language = "pt-BR"
+
     _supported_voices = [
         Voice(voice.split(" ", 1)[0].lower(), voice)
         for voice in (
@@ -190,94 +199,137 @@ class GoogleGenerativeAITextToSpeechEntity(
     ]
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
-        """Initialize the TTS entity."""
+        """Initialize Luna TTS."""
         super().__init__(config_entry, subentry, RECOMMENDED_TTS_MODEL)
 
     @callback
     @override
     def async_get_supported_voices(self, language: str) -> list[Voice]:
-        """Return a list of supported voices for a language."""
+        """Return supported voices."""
         return self._supported_voices
 
     @cached_property
     @override
     def default_options(self) -> Mapping[str, Any]:
-        """Return a mapping with the default options."""
-        return {
-            ATTR_VOICE: self._supported_voices[0].voice_id,
-        }
+        """Return default TTS options."""
+        return {ATTR_VOICE: self._supported_voices[0].voice_id}
 
     @override
     async def async_get_tts_audio(
         self, message: str, language: str, options: dict[str, Any]
     ) -> TtsAudioType:
-        """Load tts audio file from the engine."""
-        config = types.GenerateContentConfig()
-        config.temperature = self.subentry.data.get(
-            CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE
+        """Generate, validate and return WAV audio."""
+        if not message.strip():
+            raise HomeAssistantError("Luna TTS received an empty message")
+
+        model = self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_TTS_MODEL)
+        if model in _LEGACY_TTS_MODELS:
+            LOGGER.warning(
+                "Migrating Luna TTS request from legacy model %s to %s",
+                model,
+                RECOMMENDED_TTS_MODEL,
+            )
+            model = RECOMMENDED_TTS_MODEL
+
+        voice_name = options.get(
+            ATTR_VOICE, self._supported_voices[0].voice_id
         )
-        config.response_modalities = ["AUDIO"]
-        config.speech_config = types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                    voice_name=options[ATTR_VOICE]
+
+        config = types.GenerateContentConfig(
+            temperature=self.subentry.data.get(
+                CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE
+            ),
+            response_modalities=["AUDIO"],
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=voice_name
+                    )
                 )
-            )
+            ),
         )
 
-        def _extract_audio_parts(
-            response: types.GenerateContentResponse,
-        ) -> tuple[bytes, str]:
-            if (
-                not response.candidates
-                or not response.candidates[0].content
-                or not response.candidates[0].content.parts
-                or not response.candidates[0].content.parts[0].inline_data
-            ):
-                raise ValueError("No content returned from TTS generation")
+        styled_message = self._build_tts_prompt(message)
+        attempts = (styled_message, message) if styled_message != message else (message,)
+        last_error: Exception | None = None
 
-            data = response.candidates[0].content.parts[0].inline_data.data
-            mime_type = response.candidates[0].content.parts[0].inline_data.mime_type
-
-            if not isinstance(data, bytes):
-                raise TypeError(
-                    f"Expected bytes for audio data, got {type(data).__name__}"
+        for attempt_number, prompt in enumerate(attempts, start=1):
+            try:
+                response = await self._genai_client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=config,
                 )
-            if not isinstance(mime_type, str):
-                raise TypeError(
-                    f"Expected str for mime_type, got {type(mime_type).__name__}"
+                pcm_audio, mime_type = extract_audio_parts(response)
+                wav_audio = convert_to_wav(pcm_audio, mime_type)
+                wav_info = validate_wav(wav_audio)
+
+                LOGGER.info(
+                    "Luna TTS audio valid: model=%s voice=%s mime=%s "
+                    "source_bytes=%d wav_bytes=%d rate=%dHz channels=%d "
+                    "bits=%d duration=%.2fs attempt=%d",
+                    model,
+                    voice_name,
+                    mime_type,
+                    len(pcm_audio),
+                    len(wav_audio),
+                    wav_info.sample_rate,
+                    wav_info.channels,
+                    wav_info.bits_per_sample,
+                    wav_info.duration_seconds,
+                    attempt_number,
                 )
+                return "wav", wav_audio
 
-            return data, mime_type
+            except (ValueError, TypeError, HomeAssistantError) as exc:
+                last_error = exc
+                if attempt_number < len(attempts):
+                    LOGGER.warning(
+                        "Luna TTS returned invalid audio on attempt %d; "
+                        "retrying without style instructions: %s",
+                        attempt_number,
+                        exc,
+                    )
+                    continue
+                break
+            except (APIError, ClientError) as exc:
+                LOGGER.error("Gemini TTS API error: %s", exc, exc_info=True)
+                raise HomeAssistantError(str(exc)) from exc
 
-        try:
-            style_prompt = self.subentry.data.get(
-                CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
-            )
-            voice_mood = self.subentry.data.get(
-                CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD
-            )
-            speaking_pace = self.subentry.data.get(
-                CONF_SPEAKING_PACE, DEFAULT_SPEAKING_PACE
-            )
-            mood_text = VOICE_MOOD_PROMPTS.get(voice_mood, "")
-            pace_text = SPEAKING_PACE_PROMPTS.get(speaking_pace, "")
-            preset_style = (
-                f"Use uma interpretação {mood_text}. {pace_text}".strip()
-            )
-            full_style = " ".join(
-                part for part in (style_prompt, preset_style) if part
-            )
-            styled_message = f"{full_style}\n\n{message}" if full_style else message
+        LOGGER.error("Luna TTS could not produce valid audio: %s", last_error)
+        raise HomeAssistantError(
+            f"Luna TTS could not produce valid audio: {last_error}"
+        ) from last_error
 
-            response = await self._genai_client.aio.models.generate_content(
-                model=self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_TTS_MODEL),
-                contents=styled_message,
-                config=config,
-            )
+    def _build_tts_prompt(self, message: str) -> str:
+        """Build a prompt that clearly separates direction from transcript."""
+        style_prompt = self.subentry.data.get(
+            CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
+        )
+        voice_mood = self.subentry.data.get(
+            CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD
+        )
+        speaking_pace = self.subentry.data.get(
+            CONF_SPEAKING_PACE, DEFAULT_SPEAKING_PACE
+        )
 
-            data, mime_type = _extract_audio_parts(response)
-        except (APIError, ClientError, ValueError, TypeError) as exc:
-            LOGGER.error("Error during TTS: %s", exc, exc_info=True)
-            raise HomeAssistantError(exc) from exc
-        return "wav", convert_to_wav(data, mime_type)
+        mood_text = VOICE_MOOD_PROMPTS.get(voice_mood, "")
+        pace_text = SPEAKING_PACE_PROMPTS.get(speaking_pace, "")
+        preset_style = f"Use uma interpretação {mood_text}. {pace_text}".strip()
+        full_style = " ".join(
+            part.strip()
+            for part in (style_prompt, preset_style)
+            if isinstance(part, str) and part.strip()
+        )
+
+        if not full_style:
+            return message
+
+        return (
+            f"{full_style}\n\n"
+            "Leia somente o texto entre as marcas TRANSCRIÇÃO. "
+            "Não leia as instruções nem as marcas.\n"
+            "=== TRANSCRIÇÃO ===\n"
+            f"{message}\n"
+            "=== FIM DA TRANSCRIÇÃO ==="
+        )

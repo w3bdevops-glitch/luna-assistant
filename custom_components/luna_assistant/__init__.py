@@ -13,7 +13,7 @@ from requests.exceptions import Timeout
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_API_KEY, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     ConfigEntryError,
@@ -32,6 +32,11 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
     DOMAIN,
+    AUDIO_OUTPUT_EXTERNAL,
+    CONF_AUDIO_OUTPUT,
+    CONF_MEDIA_PLAYER_ENTITY_ID,
+    DEFAULT_AUDIO_OUTPUT,
+    LUNA_BARGE_IN_EVENT,
     LOGGER,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
@@ -83,6 +88,26 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    async def _async_handle_barge_in(event: Event) -> None:
+        for subentry in entry.subentries.values():
+            if subentry.subentry_type != "conversation":
+                continue
+            options = subentry.data
+            if options.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT) != AUDIO_OUTPUT_EXTERNAL:
+                continue
+            player = options.get(CONF_MEDIA_PLAYER_ENTITY_ID)
+            if player:
+                await hass.services.async_call(
+                    "media_player",
+                    "media_stop",
+                    {"entity_id": player},
+                    blocking=False,
+                    context=event.context,
+                )
+
+    entry.async_on_unload(
+        hass.bus.async_listen(LUNA_BARGE_IN_EVENT, _async_handle_barge_in)
+    )
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
     return True

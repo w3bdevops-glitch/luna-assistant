@@ -13,7 +13,6 @@ LOGGER = logging.getLogger(__package__)
 
 DOMAIN = "luna_assistant"
 DEFAULT_TITLE = "Luna Assistant"
-
 DEFAULT_CONVERSATION_NAME = "Luna Conversation"
 DEFAULT_STT_NAME = "Luna STT"
 DEFAULT_TTS_NAME = "Luna TTS"
@@ -23,27 +22,28 @@ DEFAULT_STT_PROMPT = (
     "Transcreva fielmente o áudio em português do Brasil. "
     "Corrija apenas hesitações e pontuação, sem inventar palavras."
 )
-
 DEFAULT_CONVERSATION_PROMPT = (
     "Você é Luna, uma assistente residencial alegre, natural e objetiva. "
     "Responda em português do Brasil, normalmente em até duas frases. "
     "Quando uma ação da casa for solicitada, execute-a sem explicações longas. "
     "Não diga que executou uma ação antes de receber confirmação da ferramenta."
 )
-
 DEFAULT_TTS_STYLE_PROMPT = (
     "Fale em português do Brasil com voz feminina, alegre, acolhedora e natural. "
     "Use ritmo de conversa, pausas curtas e entonação alto-astral, sem exagerar. "
-    "Pronuncie somente a resposta a seguir, sem ler estas instruções:"
+    "Pronuncie somente a transcrição fornecida."
 )
-
 
 CONF_RECOMMENDED = "recommended"
 CONF_CHAT_MODEL = "chat_model"
+
 RECOMMENDED_CHAT_MODEL = "models/gemini-3.1-flash-lite"
 RECOMMENDED_STT_MODEL = RECOMMENDED_CHAT_MODEL
-RECOMMENDED_TTS_MODEL = "models/gemini-2.5-flash-preview-tts"
+
+# Home Assistant Core 2026.7.4 uses Gemini 3.1 for TTS.
+RECOMMENDED_TTS_MODEL = "models/gemini-3.1-flash-tts-preview"
 RECOMMENDED_IMAGE_MODEL = "models/gemini-2.5-flash-image"
+
 CONF_TEMPERATURE = "temperature"
 RECOMMENDED_TEMPERATURE = 1.0
 CONF_TOP_P = "top_p"
@@ -52,8 +52,8 @@ CONF_TOP_K = "top_k"
 RECOMMENDED_TOP_K = 64
 CONF_MAX_TOKENS = "max_tokens"
 RECOMMENDED_MAX_TOKENS = 3000
-# Input 5000, output 19400 = 0.05 USD
 RECOMMENDED_AI_TASK_MAX_TOKENS = 19400
+
 CONF_HARASSMENT_BLOCK_THRESHOLD = "harassment_block_threshold"
 CONF_HATE_BLOCK_THRESHOLD = "hate_block_threshold"
 CONF_SEXUAL_BLOCK_THRESHOLD = "sexual_block_threshold"
@@ -66,12 +66,24 @@ RECOMMENDED_THINKING_BUDGET = -1
 CONF_THINKING_LEVEL = "thinking_level"
 RECOMMENDED_THINKING_LEVEL = "auto"
 
-
 CONF_PERSONALITY = "personality"
 CONF_RESPONSE_LENGTH = "response_length"
 CONF_LATENCY_PROFILE = "latency_profile"
 CONF_VOICE_MOOD = "voice_mood"
 CONF_SPEAKING_PACE = "speaking_pace"
+CONF_AUDIO_OUTPUT = "audio_output"
+CONF_MEDIA_PLAYER_ENTITY_ID = "media_player_entity_id"
+CONF_EXTERNAL_VOLUME = "external_volume"
+CONF_EXTERNAL_ANNOUNCE = "external_announce"
+CONF_FALLBACK_TO_ATOM = "fallback_to_atom"
+
+AUDIO_OUTPUT_ATOM = "atom"
+AUDIO_OUTPUT_EXTERNAL = "external"
+DEFAULT_AUDIO_OUTPUT = AUDIO_OUTPUT_ATOM
+DEFAULT_EXTERNAL_VOLUME = 0.45
+DEFAULT_EXTERNAL_ANNOUNCE = True
+DEFAULT_FALLBACK_TO_ATOM = True
+LUNA_BARGE_IN_EVENT = "esphome.luna_barge_in"
 
 DEFAULT_PERSONALITY = "playful"
 DEFAULT_RESPONSE_LENGTH = "short"
@@ -96,14 +108,12 @@ PERSONALITY_PROMPTS = {
         "Seja técnica e precisa, usando detalhes quando forem realmente úteis."
     ),
 }
-
 RESPONSE_LENGTH_PROMPTS = {
     "very_short": "Responda em uma frase curta sempre que possível.",
     "short": "Responda normalmente em até duas frases.",
     "balanced": "Responda de forma equilibrada, com apenas os detalhes necessários.",
     "detailed": "Dê uma resposta mais completa quando o assunto exigir.",
 }
-
 LATENCY_PROFILE_PROMPTS = {
     "fast": (
         "Priorize velocidade e respostas curtas. Evite raciocínios longos "
@@ -116,7 +126,6 @@ LATENCY_PROFILE_PROMPTS = {
         "Priorize qualidade e precisão, mesmo que a resposta leve um pouco mais."
     ),
 }
-
 VOICE_MOOD_PROMPTS = {
     "cheerful": "alegre, luminosa e alto-astral",
     "warm": "acolhedora, suave e simpática",
@@ -124,7 +133,6 @@ VOICE_MOOD_PROMPTS = {
     "enthusiastic": "entusiasmada, viva e positiva",
     "professional": "confiante, clara e profissional",
 }
-
 SPEAKING_PACE_PROMPTS = {
     "slow": "Fale um pouco mais devagar, com pausas naturais.",
     "natural": "Use ritmo natural de conversa, com pausas curtas.",
@@ -143,15 +151,17 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_PERSONALITY: DEFAULT_PERSONALITY,
     CONF_RESPONSE_LENGTH: DEFAULT_RESPONSE_LENGTH,
     CONF_LATENCY_PROFILE: DEFAULT_LATENCY_PROFILE,
+    CONF_AUDIO_OUTPUT: DEFAULT_AUDIO_OUTPUT,
+    CONF_EXTERNAL_VOLUME: DEFAULT_EXTERNAL_VOLUME,
+    CONF_EXTERNAL_ANNOUNCE: DEFAULT_EXTERNAL_ANNOUNCE,
+    CONF_FALLBACK_TO_ATOM: DEFAULT_FALLBACK_TO_ATOM,
 }
-
 RECOMMENDED_STT_OPTIONS = {
     CONF_PROMPT: DEFAULT_STT_PROMPT,
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_STT_MODEL,
     CONF_TEMPERATURE: 0.0,
 }
-
 RECOMMENDED_TTS_OPTIONS = {
     CONF_PROMPT: DEFAULT_TTS_STYLE_PROMPT,
     CONF_RECOMMENDED: False,
@@ -160,7 +170,6 @@ RECOMMENDED_TTS_OPTIONS = {
     CONF_VOICE_MOOD: DEFAULT_VOICE_MOOD,
     CONF_SPEAKING_PACE: DEFAULT_SPEAKING_PACE,
 }
-
 RECOMMENDED_AI_TASK_OPTIONS = {
     CONF_RECOMMENDED: True,
 }

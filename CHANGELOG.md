@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- TTS Gemini/WAV validado.
+- Modelo recomendado Gemini 3.1 Flash TTS Preview.
+- Saída de áudio configurável: Atom ou media player externo.
+- Seletor dinâmico de entidades media_player.
+- Volume, anúncio e fallback configuráveis.
+- Previne reprodução duplicada no Atom.
+- Interrupção externa por evento esphome.luna_barge_in.
+- Mantém contexto e conversation_id.
+
 ## 0.3.1
 
 - Hotfix: align `google-genai` with Home Assistant Core 2026.7.4 (`1.59.0`).

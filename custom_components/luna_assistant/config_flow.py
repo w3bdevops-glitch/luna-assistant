@@ -35,10 +35,23 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
+    EntitySelector,
+    EntitySelectorConfig,
 )
 
 from .const import (
     CONF_CHAT_MODEL,
+    AUDIO_OUTPUT_ATOM,
+    AUDIO_OUTPUT_EXTERNAL,
+    CONF_AUDIO_OUTPUT,
+    CONF_MEDIA_PLAYER_ENTITY_ID,
+    CONF_EXTERNAL_VOLUME,
+    CONF_EXTERNAL_ANNOUNCE,
+    CONF_FALLBACK_TO_ATOM,
+    DEFAULT_AUDIO_OUTPUT,
+    DEFAULT_EXTERNAL_VOLUME,
+    DEFAULT_EXTERNAL_ANNOUNCE,
+    DEFAULT_FALLBACK_TO_ATOM,
     CONF_LATENCY_PROFILE,
     CONF_PERSONALITY,
     CONF_RESPONSE_LENGTH,
@@ -407,6 +420,51 @@ async def google_generative_ai_config_option_schema(
                         translation_key=CONF_LATENCY_PROFILE,
                     )
                 ),
+                vol.Optional(
+                    CONF_AUDIO_OUTPUT,
+                    default=options.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[AUDIO_OUTPUT_ATOM, AUDIO_OUTPUT_EXTERNAL],
+                        translation_key=CONF_AUDIO_OUTPUT,
+                    )
+                ),
+                vol.Optional(
+                    CONF_MEDIA_PLAYER_ENTITY_ID,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_MEDIA_PLAYER_ENTITY_ID
+                        )
+                    },
+                ): EntitySelector(
+                    EntitySelectorConfig(domain="media_player")
+                ),
+                vol.Optional(
+                    CONF_EXTERNAL_VOLUME,
+                    default=options.get(
+                        CONF_EXTERNAL_VOLUME, DEFAULT_EXTERNAL_VOLUME
+                    ),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0.05,
+                        max=1.0,
+                        step=0.05,
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+                vol.Optional(
+                    CONF_EXTERNAL_ANNOUNCE,
+                    default=options.get(
+                        CONF_EXTERNAL_ANNOUNCE, DEFAULT_EXTERNAL_ANNOUNCE
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_FALLBACK_TO_ATOM,
+                    default=options.get(
+                        CONF_FALLBACK_TO_ATOM, DEFAULT_FALLBACK_TO_ATOM
+                    ),
+                ): bool,
             }
         )
     elif subentry_type == "stt":
