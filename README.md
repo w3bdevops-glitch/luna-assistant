@@ -1,43 +1,46 @@
-# Luna Assistant v0.3.4-stable
+# Luna Assistant v0.3.5-stable
 
-Correção da seleção de saída de áudio. O firmware continua sem qualquer modo
-de alto-falante externo; o roteamento fica somente na Luna Assistant.
+Correção do áudio externo para Google Nest e outros `media_player`.
 
-## Saídas disponíveis em Luna Conversation
+## O que foi corrigido
 
-- **Atom** — resposta pelo Assist Pipeline normal do satélite.
-- **Google Nest** — resposta enviada ao `media_player` do Nest selecionado.
-- **Outro media player** — resposta enviada a qualquer entidade `media_player`
-  compatível com `tts.speak`.
+- A integração agora usa `tts.microsoft_say` quando o Microsoft Text-to-Speech
+  está configurado no Home Assistant.
+- O destino enviado ao serviço é sempre o `entity_id` real selecionado, por
+  exemplo `media_player.nest_sala`.
+- O nome amigável mostrado na interface, por exemplo `Google Nest Sala`, nunca
+  é usado na chamada do serviço.
+- Corrigido o logger ausente no caminho de áudio externo.
+- Mantido o fallback automático para Luna TTS e, por último, para o Atom.
 
-Para Google Nest ou Outro media player, o campo **Media player de saída** é
-obrigatório.
+## Ordem de roteamento externo
 
-## Como o fallback funciona
+1. Microsoft TTS: `tts.microsoft_say`.
+2. Luna TTS: `tts.speak`, caso o serviço Microsoft não exista ou falhe.
+3. Atom: a fala original do Assist Pipeline é preservada se nenhuma rota
+   externa for aceita.
 
-1. A Luna gera a resposta.
-2. A integração chama `tts.speak` usando a entidade Luna TTS e o media player.
-3. Somente quando essa chamada é aceita, a fala do pipeline do Atom é removida.
-4. Se o alvo não existir, estiver indisponível ou a chamada gerar erro, a fala
-   original permanece e o Atom reproduz a resposta.
+A resposta do Atom só é removida depois que uma chamada externa termina sem
+erro síncrono. Isso evita silêncio quando o serviço TTS ou o player não estão
+disponíveis.
 
-Limitação: se o Google Nest aceitar o comando e falhar depois, de forma
-assíncrona, o Home Assistant não fornece uma confirmação de reprodução real;
-nesse caso específico não é possível voltar automaticamente ao Atom.
+## Configuração
 
-## Uso
+Nenhuma migração ou alteração de firmware é necessária.
 
-1. Instale a pasta `custom_components/luna_assistant`.
+1. Instale a pasta `custom_components/luna_assistant` desta versão.
 2. Reinicie completamente o Home Assistant.
 3. Abra **Luna Assistant → Luna Conversation → Configurar**.
-4. Escolha **Saída de áudio**.
-5. Para Nest ou outro player, escolha **Media player de saída**.
-6. Mantenha **Perfil de latência: Rápido** para menor tempo de resposta.
+4. Escolha **Google Nest** ou **Outro media player**.
+5. Em **Media player de saída**, selecione a entidade desejada.
 
-## O que permanece da v0.3.3
+O seletor do Home Assistant grava o `entity_id`; a integração confirma o alvo
+no registro de estados antes de chamar o TTS.
 
-- Gemini 3.1 Flash Lite no perfil Rápido.
-- TTS Gemini 3.1.
-- Uma única chamada ao Gemini TTS.
-- Validação PCM/WAV.
-- Logs separados da API e criação do WAV.
+## Compatibilidade
+
+- Home Assistant alvo: 2026.7.4.
+- Microsoft Text-to-Speech configurado por YAML: suportado por
+  `tts.microsoft_say`.
+- Luna TTS continua disponível como fallback.
+- Firmware Luna Satellite permanece na v0.1.6-stable.

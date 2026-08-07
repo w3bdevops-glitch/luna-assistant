@@ -1,23 +1,27 @@
 {
   "name": "Luna Assistant",
-  "version": "0.3.4-stable",
+  "version": "0.3.5-stable",
   "home_assistant_target": "2026.7.4",
+  "validation_scope": "static build validation; runtime installation still required",
   "checks": {
-    "manifest_version_0_3_4": true,
-    "config_minor_version_6": true,
-    "three_output_options": true,
-    "media_player_selector": true,
-    "required_target_validation": true,
-    "tts_speak_service": true,
+    "manifest_version_0_3_5": true,
+    "python_syntax": true,
+    "json_files_valid": true,
+    "logger_imported": true,
+    "microsoft_tts_service_detected": true,
+    "microsoft_service_uses_attr_entity_id": true,
+    "microsoft_target_value_is_canonical_entity_id": true,
+    "friendly_name_not_used_for_routing": true,
+    "luna_tts_fallback_preserved": true,
+    "atom_fallback_preserved": true,
     "clear_atom_only_after_success": true,
-    "atom_default": true,
-    "firmware_external_mode_absent": true,
-    "fast_profile_preserved": true,
-    "tts_3_1_preserved": true
+    "config_minor_version_6_preserved": true,
+    "firmware_change_required": false
   },
   "runtime_test_required": [
-    "Home Assistant config flow rendering",
-    "Google Nest playback",
-    "Fallback to Atom when external target is unavailable"
+    "Install and restart Home Assistant",
+    "Select the Google Nest media_player entity",
+    "Confirm Microsoft TTS playback from a satellite request",
+    "Confirm Atom fallback when the external target is unavailable"
   ]
 }

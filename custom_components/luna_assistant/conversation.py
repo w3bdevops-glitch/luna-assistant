@@ -42,6 +42,7 @@ from .const import (
     DOMAIN,
     LATENCY_PROFILE_PROMPTS,
     LATENCY_PROFILE_TOOL_ITERATIONS,
+    LOGGER,
     PERSONALITY_PROMPTS,
     RESPONSE_LENGTH_PROMPTS,
 )
@@ -157,10 +158,14 @@ class GoogleGenerativeAIConversationEntity(
         """Route a voice reply to the configured external media player.
 
         Atom remains the default Assist Pipeline destination. For an external
-        destination, Luna calls tts.speak first. Only after that call succeeds
-        is the pipeline speech cleared, which prevents duplicate playback on
-        the Atom. Any synchronous routing failure leaves the original speech
-        untouched, so the Assist Pipeline falls back to the Atom.
+        destination, Luna prefers the configured Microsoft legacy TTS service
+        when it is available, and falls back to Luna TTS via ``tts.speak``.
+        The selected media player is always addressed by its canonical
+        ``entity_id``; the friendly name is never sent to a service call.
+
+        Only after a TTS service call succeeds is the pipeline speech cleared.
+        Any synchronous routing failure leaves the original speech untouched,
+        so the Assist Pipeline falls back to the Atom.
         """
         options = self.subentry.data
         output_mode = options.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT)
@@ -172,44 +177,115 @@ class GoogleGenerativeAIConversationEntity(
         if user_input.satellite_id is None and user_input.device_id is None:
             return
 
-        media_player_entity_id = options.get(CONF_OUTPUT_MEDIA_PLAYER)
-        if not isinstance(media_player_entity_id, str):
+        configured_entity_id = options.get(CONF_OUTPUT_MEDIA_PLAYER)
+        if not isinstance(configured_entity_id, str):
             LOGGER.warning(
-                "External audio selected without a media player; "
+                "External audio selected without a media player entity_id; "
                 "falling back to Atom"
             )
             return
 
-        media_player_state = self.hass.states.get(media_player_entity_id)
+        media_player_state = self.hass.states.get(configured_entity_id)
         if (
             media_player_state is None
             or media_player_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN)
         ):
             LOGGER.warning(
-                "Audio target %s is unavailable; falling back to Atom",
-                media_player_entity_id,
+                "Audio target entity_id %s is unavailable; falling back to Atom",
+                configured_entity_id,
             )
             return
+
+        # Use Home Assistant's canonical entity_id from the state object. Never
+        # use the friendly name shown in the UI (for example, "Google Nest").
+        target_entity_id = media_player_state.entity_id
 
         speech = result.response.speech.get("plain", {}).get("speech", "")
         if not isinstance(speech, str) or not speech.strip():
             return
 
-        tts_entity_id = self._async_find_luna_tts_entity_id()
-        if tts_entity_id is None:
+        started = time.monotonic()
+        provider: str | None = None
+
+        if await self._async_route_with_microsoft_tts(
+            target_entity_id, speech, user_input
+        ):
+            provider = "tts.microsoft_say"
+        elif await self._async_route_with_luna_tts(
+            target_entity_id, speech, user_input
+        ):
+            provider = "tts.speak / Luna TTS"
+
+        if provider is None:
             LOGGER.warning(
-                "No Luna TTS entity found; falling back to Atom"
+                "No external TTS route succeeded for entity_id %s; "
+                "falling back to Atom",
+                target_entity_id,
             )
             return
 
-        started = time.monotonic()
+        # Home Assistant's Assist Pipeline skips its own TTS when speech is
+        # empty. Clear only after an external TTS call completed successfully.
+        result.response.speech.clear()
+        LOGGER.info(
+            "Luna audio routed to entity_id %s using %s in %.0f ms",
+            target_entity_id,
+            provider,
+            (time.monotonic() - started) * 1000,
+        )
+
+    async def _async_route_with_microsoft_tts(
+        self,
+        target_entity_id: str,
+        speech: str,
+        user_input: conversation.ConversationInput,
+    ) -> bool:
+        """Route through the legacy Microsoft TTS service when present."""
+        service = "microsoft_say"
+        if not self.hass.services.has_service(TTS_DOMAIN, service):
+            return False
+
+        try:
+            await self.hass.services.async_call(
+                TTS_DOMAIN,
+                service,
+                {
+                    # This is deliberately the media_player entity_id, not its
+                    # friendly/display name.
+                    ATTR_ENTITY_ID: target_entity_id,
+                    ATTR_MESSAGE: speech,
+                    ATTR_CACHE: True,
+                },
+                blocking=True,
+                context=user_input.context,
+            )
+        except Exception:  # noqa: BLE001
+            LOGGER.exception(
+                "Microsoft TTS routing to entity_id %s failed; trying Luna TTS",
+                target_entity_id,
+            )
+            return False
+
+        return True
+
+    async def _async_route_with_luna_tts(
+        self,
+        target_entity_id: str,
+        speech: str,
+        user_input: conversation.ConversationInput,
+    ) -> bool:
+        """Route through Luna's TTS entity as a compatibility fallback."""
+        tts_entity_id = self._async_find_luna_tts_entity_id()
+        if tts_entity_id is None:
+            return False
+
         try:
             await self.hass.services.async_call(
                 TTS_DOMAIN,
                 "speak",
                 {
                     ATTR_ENTITY_ID: tts_entity_id,
-                    ATTR_MEDIA_PLAYER_ENTITY_ID: [media_player_entity_id],
+                    ATTR_MEDIA_PLAYER_ENTITY_ID: target_entity_id,
                     ATTR_MESSAGE: speech,
                     ATTR_CACHE: True,
                     ATTR_LANGUAGE: (
@@ -221,19 +297,12 @@ class GoogleGenerativeAIConversationEntity(
             )
         except Exception:  # noqa: BLE001
             LOGGER.exception(
-                "External audio routing to %s failed; falling back to Atom",
-                media_player_entity_id,
+                "Luna TTS routing to entity_id %s failed; falling back to Atom",
+                target_entity_id,
             )
-            return
+            return False
 
-        # Home Assistant's Assist Pipeline skips its own TTS when speech is
-        # empty. Clear only after tts.speak was accepted successfully.
-        result.response.speech.clear()
-        LOGGER.info(
-            "Luna audio routed to %s in %.0f ms",
-            media_player_entity_id,
-            (time.monotonic() - started) * 1000,
-        )
+        return True
 
     def _async_find_luna_tts_entity_id(self) -> str | None:
         """Return the first enabled Luna TTS entity for this config entry."""

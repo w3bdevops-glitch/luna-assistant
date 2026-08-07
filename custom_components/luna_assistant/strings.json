@@ -68,8 +68,8 @@
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
             "enable_google_search_tool": "Works only when no Home Assistant control API is selected.",
-            "audio_output": "Atom uses the normal Assist Pipeline. Google Nest and Other media player send Luna TTS to the selected media_player entity.",
-            "output_media_player": "Required for Google Nest or Other media player. The Atom is used as a fallback when the target is missing, unavailable, or the TTS service fails."
+            "audio_output": "Atom uses the normal Assist Pipeline. Google Nest and Other media player prefer Microsoft TTS when available, then fall back to Luna TTS.",
+            "output_media_player": "Required for Google Nest or Other media player. The selected media_player entity_id is used directly; the friendly name is never sent to TTS."
           }
         }
       }

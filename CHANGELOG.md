@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.5-stable
+
+- Corrigido o áudio externo com Microsoft Text-to-Speech.
+- Adicionado roteamento preferencial por `tts.microsoft_say`.
+- Garantido que o alvo seja o `entity_id` canônico do `media_player`, nunca o
+  nome amigável do Google Nest.
+- Corrigida a referência ausente a `LOGGER` no caminho externo.
+- Mantido fallback Microsoft TTS → Luna TTS → Atom.
+- Mantida a prevenção de áudio duplicado: o Atom só é silenciado após uma
+  chamada externa bem-sucedida.
+- Sem mudança de esquema; config entry minor version permanece 6.
+
 ## 0.3.4-stable
 
 - Restaurada a seleção de saída na Luna Conversation.
