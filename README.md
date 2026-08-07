@@ -1,4 +1,11 @@
-# Luna Assistant v0.3.7-stable
+# Luna Assistant v0.3.8-stable
+
+## Conversa contínua segura
+
+Depois de enviar o TTS ao Google Nest, a integração acompanha o estado real do
+player. Quando a reprodução muda de `playing`/`buffering` para `idle`, `off` ou
+`paused`, ela avisa o Luna Satellite v0.2.3-alpha. O Satellite só então abre o
+follow-up automático, caso **Luna Continuous Conversation** esteja ligado.
 
 ## Interrupção por “Ei, Luna”
 
@@ -21,7 +28,7 @@ encerrar o turno antes de o Google Nest terminar de falar. O Luna Satellite
 entrava imediatamente no modo de continuação e o microfone acabava ouvindo a
 própria resposta da Luna.
 
-A v0.3.7 libera o Assist Pipeline assim que o Google Nest começa a resposta.
+A v0.3.8 libera o Assist Pipeline assim que o Google Nest começa a resposta.
 O Luna Satellite volta então ao `micro_wake_word`, não ao reconhecimento livre
 de fala. Ruídos comuns e a própria voz do Nest não iniciam STT. Somente a wake
 word local “Ei, Luna” interrompe o player e abre um novo turno.
@@ -58,5 +65,5 @@ serviço TTS.
 - Home Assistant alvo: 2026.7.4.
 - Microsoft Text-to-Speech por `tts.microsoft_say`.
 - Luna TTS por `tts.speak` como fallback.
-- Firmware Luna Satellite permanece na v0.1.6-stable.
+- Firmware recomendado: Luna Satellite v0.2.3-alpha.
 - Não há migração de configuração; minor version permanece 6.

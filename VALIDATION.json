@@ -1,10 +1,10 @@
 {
   "name": "Luna Assistant",
-  "version": "0.3.7-stable",
+  "version": "0.3.8-stable",
   "home_assistant_target": "2026.7.4",
   "validation_scope": "static build validation; runtime installation still required",
   "checks": {
-    "manifest_version_0_3_7": true,
+    "manifest_version_0_3_8": true,
     "python_syntax": true,
     "json_files_valid": true,
     "microsoft_tts_service_preserved": true,
@@ -16,6 +16,8 @@
     "config_minor_version_6_preserved": true,
     "barge_in_service_registered": true,
     "configured_external_player_auto_discovery": true,
+    "external_player_completion_monitor": true,
+    "satellite_follow_up_notification": true,
     "firmware_change_required": true
   },
   "runtime_test_required": [
@@ -25,6 +27,8 @@
     "While the Nest speaks, say Ei Luna and confirm playback stops immediately",
     "Confirm a fresh listening turn opens after the interruption",
     "Confirm ordinary room noise does not create a new conversation turn",
+    "Confirm continuous conversation opens only after the Nest becomes idle",
+    "Confirm Wake Chime does not produce Parent bus is busy",
     "Confirm Atom fallback when the external target is unavailable"
   ]
 }

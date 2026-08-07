@@ -1,12 +1,22 @@
-# Luna Assistant v0.3.7
+# Luna Assistant v0.3.8
 
-**Tag:** `v0.3.7`  
-**Título:** `Luna Assistant v0.3.7`  
-**Asset:** `luna-assistant-v0.3.7-stable.zip`
+**Tag:** `v0.3.8`  
+**Título:** `Luna Assistant v0.3.8 – Conversa contínua segura no Google Nest`  
+**Asset:** `luna-assistant-v0.3.8-stable.zip`
+
+## Conversa contínua restaurada
+
+A integração agora acompanha o estado real do Google Nest após enviar o TTS.
+Quando o player termina, ela chama a ação do Luna Satellite `v0.2.3-alpha`,
+que abre automaticamente o próximo turno se **Luna Continuous Conversation**
+estiver ligado.
+
+Enquanto o Nest fala, o Satellite mantém somente o detector local de wake word.
+Ruídos e a voz do Nest não são enviados ao STT.
 
 ## Interrupção natural por wake word
 
-O firmware Luna Satellite v0.1.5 chama a nova ação
+O firmware Luna Satellite chama a ação
 `luna_assistant.interrupt_external_audio` no instante em que “Ei, Luna” é
 detectado. A integração identifica o Google Nest ou outro player configurado,
 interrompe a resposta anterior e permite que o satélite abra um novo turno.
@@ -38,4 +48,4 @@ não é utilizado.
 Substitua `custom_components/luna_assistant`, reinicie o Home Assistant e teste
 uma conversa pelo satélite com a saída externa selecionada.
 
-Não há atualização de firmware nesta versão.
+Requer Luna Satellite `v0.2.3-alpha` para restaurar a conversa contínua segura.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.8-stable
+
+- Adicionado acompanhamento do estado do Google Nest/player externo após o TTS.
+- Ao observar a transição real de `playing`/`buffering` para `idle`, `off` ou
+  `paused`, a integração notifica o Luna Satellite pelo serviço ESPHome.
+- A notificação permite restaurar a conversa contínua sem expor o STT à voz do
+  Nest ou a ruídos durante a resposta.
+- Mantida a interrupção por wake word introduzida na `v0.3.7`.
+- Compatível com Luna Satellite `v0.2.3-alpha`.
+
 ## 0.3.7-stable
 
 - Adicionada a ação `luna_assistant.interrupt_external_audio` para barge-in.

@@ -4,6 +4,7 @@
 
 """Conversation support for the Luna Assistant integration."""
 
+import asyncio
 import time
 from typing import Literal, override
 
@@ -228,12 +229,56 @@ class GoogleGenerativeAIConversationEntity(
         # and re-enables only its local micro wake word. Ordinary audio cannot
         # start STT; saying "Ei, Luna" invokes the barge-in service.
         result.response.speech.clear()
+        self.hass.async_create_task(
+            self._async_notify_satellites_when_external_audio_finishes(
+                target_entity_id
+            )
+        )
         LOGGER.info(
             "Luna audio routed to entity_id %s using %s; wake-word barge-in "
             "enabled; total %.0f ms",
             target_entity_id,
             provider,
             (time.monotonic() - started) * 1000,
+        )
+
+    async def _async_notify_satellites_when_external_audio_finishes(
+        self, target_entity_id: str
+    ) -> None:
+        """Notify Luna satellites after the external player really finishes."""
+        playing_seen = False
+        deadline = time.monotonic() + 180
+
+        while time.monotonic() < deadline:
+            state = self.hass.states.get(target_entity_id)
+            current = state.state if state is not None else None
+            if current in ("playing", "buffering"):
+                playing_seen = True
+            elif playing_seen and current in ("idle", "off", "paused"):
+                break
+            await asyncio.sleep(0.25)
+        else:
+            LOGGER.warning(
+                "Timed out waiting for external audio on %s to finish",
+                target_entity_id,
+            )
+            return
+
+        services = self.hass.services.async_services().get("esphome", {})
+        matching = [
+            name
+            for name in services
+            if name.endswith("_luna_external_audio_finished")
+        ]
+        for service in matching:
+            await self.hass.services.async_call(
+                "esphome", service, {}, blocking=False
+            )
+
+        LOGGER.info(
+            "External audio finished on %s; notified %d Luna satellite(s)",
+            target_entity_id,
+            len(matching),
         )
 
     async def _async_route_with_microsoft_tts(
