@@ -12,6 +12,7 @@ from homeassistant.helpers import llm
 LOGGER = logging.getLogger(__package__)
 
 DOMAIN = "luna_assistant"
+SERVICE_INTERRUPT_EXTERNAL_AUDIO = "interrupt_external_audio"
 DEFAULT_TITLE = "Luna Assistant"
 
 DEFAULT_CONVERSATION_NAME = "Luna Conversation"

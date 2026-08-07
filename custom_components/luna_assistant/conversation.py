@@ -206,7 +206,6 @@ class GoogleGenerativeAIConversationEntity(
 
         started = time.monotonic()
         provider: str | None = None
-
         if await self._async_route_with_microsoft_tts(
             target_entity_id, speech, user_input
         ):
@@ -224,11 +223,14 @@ class GoogleGenerativeAIConversationEntity(
             )
             return
 
-        # Home Assistant's Assist Pipeline skips its own TTS when speech is
-        # empty. Clear only after an external TTS call completed successfully.
+        # The Nest owns playback from this point. Clear the pipeline speech and
+        # return immediately so the satellite closes the previous Assist turn
+        # and re-enables only its local micro wake word. Ordinary audio cannot
+        # start STT; saying "Ei, Luna" invokes the barge-in service.
         result.response.speech.clear()
         LOGGER.info(
-            "Luna audio routed to entity_id %s using %s in %.0f ms",
+            "Luna audio routed to entity_id %s using %s; wake-word barge-in "
+            "enabled; total %.0f ms",
             target_entity_id,
             provider,
             (time.monotonic() - started) * 1000,

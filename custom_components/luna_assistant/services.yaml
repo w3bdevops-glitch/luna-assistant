@@ -1,0 +1,3 @@
+interrupt_external_audio:
+  name: Interromper áudio externo
+  description: Interrompe imediatamente o Google Nest ou media player configurado como saída de voz da Luna.

@@ -1,27 +1,30 @@
 {
   "name": "Luna Assistant",
-  "version": "0.3.5-stable",
+  "version": "0.3.7-stable",
   "home_assistant_target": "2026.7.4",
   "validation_scope": "static build validation; runtime installation still required",
   "checks": {
-    "manifest_version_0_3_5": true,
+    "manifest_version_0_3_7": true,
     "python_syntax": true,
     "json_files_valid": true,
-    "logger_imported": true,
-    "microsoft_tts_service_detected": true,
-    "microsoft_service_uses_attr_entity_id": true,
-    "microsoft_target_value_is_canonical_entity_id": true,
+    "microsoft_tts_service_preserved": true,
+    "canonical_media_player_entity_id_preserved": true,
     "friendly_name_not_used_for_routing": true,
-    "luna_tts_fallback_preserved": true,
+    "pipeline_released_after_external_tts_starts": true,
+    "local_wake_word_only_during_external_playback": true,
     "atom_fallback_preserved": true,
-    "clear_atom_only_after_success": true,
     "config_minor_version_6_preserved": true,
-    "firmware_change_required": false
+    "barge_in_service_registered": true,
+    "configured_external_player_auto_discovery": true,
+    "firmware_change_required": true
   },
   "runtime_test_required": [
     "Install and restart Home Assistant",
     "Select the Google Nest media_player entity",
-    "Confirm Microsoft TTS playback from a satellite request",
+    "Enable permission for the ESPHome device to perform Home Assistant actions",
+    "While the Nest speaks, say Ei Luna and confirm playback stops immediately",
+    "Confirm a fresh listening turn opens after the interruption",
+    "Confirm ordinary room noise does not create a new conversation turn",
     "Confirm Atom fallback when the external target is unavailable"
   ]
 }

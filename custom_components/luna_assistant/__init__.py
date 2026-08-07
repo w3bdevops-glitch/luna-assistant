@@ -13,7 +13,7 @@ from requests.exceptions import Timeout
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_API_KEY, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     ConfigEntryError,
@@ -27,7 +27,11 @@ from homeassistant.helpers import (
 from homeassistant.helpers.typing import UNDEFINED, ConfigType, UndefinedType
 
 from .const import (
+    AUDIO_OUTPUT_ATOM,
+    CONF_AUDIO_OUTPUT,
+    CONF_OUTPUT_MEDIA_PLAYER,
     DEFAULT_AI_TASK_NAME,
+    DEFAULT_AUDIO_OUTPUT,
     DEFAULT_STT_NAME,
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
@@ -37,6 +41,7 @@ from .const import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
+    SERVICE_INTERRUPT_EXTERNAL_AUDIO,
     TIMEOUT_MILLIS,
 )
 
@@ -55,6 +60,45 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Google Generative AI Conversation."""
 
     await async_migrate_integration(hass)
+
+    async def async_interrupt_external_audio(call: ServiceCall) -> None:
+        """Stop every external player configured for Luna voice output."""
+        targets: set[str] = set()
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            for subentry in entry.subentries.values():
+                if subentry.subentry_type != "conversation":
+                    continue
+                if (
+                    subentry.data.get(CONF_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT)
+                    == AUDIO_OUTPUT_ATOM
+                ):
+                    continue
+                entity_id = subentry.data.get(CONF_OUTPUT_MEDIA_PLAYER)
+                if isinstance(entity_id, str) and entity_id:
+                    targets.add(entity_id)
+
+        if not targets:
+            LOGGER.debug("Barge-in requested without a configured external player")
+            return
+
+        await hass.services.async_call(
+            "media_player",
+            "media_stop",
+            {},
+            target={"entity_id": sorted(targets)},
+            blocking=True,
+        )
+        LOGGER.info(
+            "Barge-in stopped Luna external audio on: %s",
+            ", ".join(sorted(targets)),
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_INTERRUPT_EXTERNAL_AUDIO):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_INTERRUPT_EXTERNAL_AUDIO,
+            async_interrupt_external_audio,
+        )
 
     return True
 
