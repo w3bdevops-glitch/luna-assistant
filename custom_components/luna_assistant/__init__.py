@@ -9,8 +9,6 @@ from types import MappingProxyType
 
 from google.genai import Client
 from google.genai.errors import APIError, ClientError
-from requests.exceptions import Timeout
-
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -21,10 +19,15 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import (
     config_validation as cv,
+)
+from homeassistant.helpers import (
     device_registry as dr,
+)
+from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.typing import UNDEFINED, ConfigType, UndefinedType
+from requests.exceptions import Timeout
 
 from .const import (
     AUDIO_OUTPUT_ATOM,
@@ -45,6 +48,7 @@ from .const import (
     TIMEOUT_MILLIS,
 )
 from .core import LunaCore
+from .provider_hub.credentials import credentials_from_entry
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = (
@@ -109,22 +113,42 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Luna Assistant Prime from a config entry."""
 
-    try:
-        client = await hass.async_add_executor_job(
-            partial(Client, api_key=entry.data[CONF_API_KEY])
-        )
-        await client.aio.models.get(
-            model=RECOMMENDED_CHAT_MODEL,
-            config={"http_options": {"timeout": TIMEOUT_MILLIS}},
-        )
-    except (APIError, Timeout) as err:
-        if isinstance(err, ClientError) and "API_KEY_INVALID" in str(err):
-            raise ConfigEntryAuthFailed(err.message) from err
-        if isinstance(err, Timeout):
-            raise ConfigEntryNotReady(err) from err
-        raise ConfigEntryError(err) from err
+    credentials = credentials_from_entry(entry)
+    google_keys = [
+        str(item.get("api_key", "")).strip()
+        for item in credentials
+        if item.get("provider") == "google"
+        and item.get("enabled", True)
+        and str(item.get("api_key", "")).strip()
+    ]
+    if not google_keys:
+        raise ConfigEntryAuthFailed("No enabled Google credential is configured")
+
+    failures: list[Exception] = []
+    for google_key in google_keys:
+        try:
+            client = await hass.async_add_executor_job(
+                partial(Client, api_key=google_key)
+            )
+            await client.aio.models.get(
+                model=RECOMMENDED_CHAT_MODEL,
+                config={"http_options": {"timeout": TIMEOUT_MILLIS}},
+            )
+            break
+        except (APIError, Timeout) as err:
+            failures.append(err)
     else:
-        entry.runtime_data = LunaCore.create(hass, client)
+        last_error = failures[-1]
+        if all(
+            isinstance(err, ClientError) and "API_KEY_INVALID" in str(err)
+            for err in failures
+        ):
+            raise ConfigEntryAuthFailed(str(last_error)) from last_error
+        if any(isinstance(err, Timeout) for err in failures):
+            raise ConfigEntryNotReady(last_error) from last_error
+        raise ConfigEntryError(last_error) from last_error
+
+    entry.runtime_data = await LunaCore.async_create(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -137,10 +161,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> bool:
     """Unload Luna Assistant Prime."""
-    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        return False
-
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_update_options(
@@ -332,6 +353,16 @@ async def async_migrate_entry(
             entry,
             title=DEFAULT_TITLE,
             minor_version=7,
+        )
+
+    if entry.version == 2 and entry.minor_version < 8:
+        # Prime v1.1 reads legacy Google/Azure keys into the central credential
+        # catalogue. Legacy fields remain accepted for a non-destructive update.
+        credentials = credentials_from_entry(entry)
+        hass.config_entries.async_update_entry(
+            entry,
+            options={**entry.options, "credentials": credentials},
+            minor_version=8,
         )
 
     LOGGER.debug(

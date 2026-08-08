@@ -23,6 +23,102 @@
       }
     }
   },
+  "options": {
+    "abort": {
+      "google_credential_required": "Mantenha pelo menos uma credencial Google ativada.",
+      "no_credentials": "Nenhuma credencial está configurada."
+    },
+    "error": {
+      "invalid_auth": "Não foi possível validar a chave ou região.",
+      "key_required": "Informe uma API key.",
+      "azure_region_required": "Informe a região do Azure Speech."
+    },
+    "step": {
+      "init": {
+        "menu_options": {
+          "general": "Rotação, failover e limites dos provedores",
+          "add_google": "Adicionar API key do Google",
+          "add_azure": "Adicionar chave do Microsoft Azure",
+          "manage_credentials": "Editar ou remover uma credencial",
+          "save": "Salvar e recarregar a Luna"
+        },
+        "title": "Credenciais e consumo do Provider Hub"
+      },
+      "general": {
+        "data": {
+          "rotation_strategy": "Estratégia de rotação",
+          "auto_failover": "Failover automático",
+          "failover_attempts": "Máximo de tentativas por chamada",
+          "failover_cooldown_seconds": "Cooldown após erro do provedor (segundos)",
+          "google_daily_request_limit": "Limite diário de chamadas Google (0 = ilimitado)",
+          "google_monthly_request_limit": "Limite mensal de chamadas Google (0 = ilimitado)",
+          "google_monthly_token_limit": "Limite mensal de tokens Google (0 = ilimitado)",
+          "azure_daily_request_limit": "Limite diário de chamadas Azure (0 = ilimitado)",
+          "azure_monthly_request_limit": "Limite mensal de chamadas Azure (0 = ilimitado)",
+          "azure_monthly_tts_character_limit": "Limite mensal de caracteres Azure TTS (0 = ilimitado)",
+          "azure_monthly_stt_seconds_limit": "Limite mensal de segundos Azure STT (0 = ilimitado)"
+        },
+        "title": "Rotação, failover e limites dos provedores"
+      },
+      "add_google": {
+        "data": {
+          "credential_name": "Nome da credencial",
+          "api_key": "API key do Google",
+          "enabled": "Ativada",
+          "priority": "Prioridade (menor usa primeiro)",
+          "daily_request_limit": "Limite diário de chamadas (0 = ilimitado)",
+          "monthly_request_limit": "Limite mensal de chamadas (0 = ilimitado)",
+          "monthly_token_limit": "Limite mensal de tokens (0 = ilimitado)"
+        },
+        "title": "Adicionar credencial Google"
+      },
+      "add_azure": {
+        "data": {
+          "credential_name": "Nome da credencial",
+          "api_key": "Chave do Azure Speech",
+          "azure_region": "Região do Azure",
+          "enabled": "Ativada",
+          "priority": "Prioridade (menor usa primeiro)",
+          "daily_request_limit": "Limite diário de chamadas (0 = ilimitado)",
+          "monthly_request_limit": "Limite mensal de chamadas (0 = ilimitado)",
+          "monthly_tts_character_limit": "Caracteres TTS por mês (0 = ilimitado)",
+          "monthly_stt_seconds_limit": "Segundos STT por mês (0 = ilimitado)"
+        },
+        "title": "Adicionar credencial Microsoft Azure"
+      },
+      "manage_credentials": {
+        "data": {
+          "credential_id": "Credencial",
+          "credential_action": "Ação"
+        },
+        "title": "Gerenciar credenciais"
+      },
+      "edit_credential": {
+        "data": {
+          "credential_name": "Nome da credencial",
+          "api_key": "Nova API key (deixe vazio para manter a atual)",
+          "azure_region": "Região do Azure",
+          "enabled": "Ativada",
+          "priority": "Prioridade (menor usa primeiro)",
+          "daily_request_limit": "Limite diário de chamadas (0 = ilimitado)",
+          "monthly_request_limit": "Limite mensal de chamadas (0 = ilimitado)",
+          "monthly_token_limit": "Tokens por mês (0 = ilimitado)",
+          "monthly_tts_character_limit": "Caracteres TTS por mês (0 = ilimitado)",
+          "monthly_stt_seconds_limit": "Segundos STT por mês (0 = ilimitado)"
+        },
+        "title": "Editar credencial"
+      },
+      "delete_credential": {
+        "data": {"confirm": "Confirmar remoção"},
+        "description": "Remover {credential_name}? O histórico de consumo será mantido nos diagnósticos.",
+        "title": "Remover credencial"
+      },
+      "google_required": {
+        "description": "É necessário manter ao menos uma credencial Google ativada para Conversation e AI Task. Adicione ou ative uma antes de salvar.",
+        "title": "Credencial Google obrigatória"
+      }
+    }
+  },
   "config_subentries": {
     "conversation": {
       "abort": {
@@ -31,7 +127,8 @@
       },
       "entry_type": "Conversation agent",
       "error": {
-        "media_player_required": "Selecione um media player para usar Google Nest ou Outro media player."
+        "media_player_required": "Selecione um media player para usar Google Nest ou Outro media player.",
+        "provider_credentials_required": "Adicione uma credencial ativada para este provedor e serviço em Configurar → Provider Hub."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure conversation agent",
@@ -82,7 +179,9 @@
         "reconfigure_successful": "Configuration updated."
       },
       "entry_type": "Speech-to-text",
-      "error": {},
+      "error": {
+        "provider_credentials_required": "Adicione uma credencial ativada para este provedor e serviço em Configurar → Provider Hub."
+      },
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text",
         "user": "Add speech-to-text"
@@ -104,7 +203,8 @@
             "top_k": "Top K",
             "top_p": "Top P",
             "prompt": "Transcription instructions",
-            "provider": "Provedor"
+            "provider": "Provedor",
+            "azure_stt_profanity": "Tratamento de palavrões no Azure"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
@@ -125,7 +225,8 @@
         "azure_key_required": "Informe a chave do Azure Speech.",
         "azure_region_required": "Informe a região do Azure Speech.",
         "invalid_auth": "A chave ou a região do Azure Speech é inválida.",
-        "cannot_connect": "Não foi possível conectar ao Azure Speech."
+        "cannot_connect": "Não foi possível conectar ao Azure Speech.",
+        "provider_credentials_required": "Adicione uma credencial ativada para este provedor e serviço em Configurar → Provider Hub."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure text-to-speech",
@@ -172,7 +273,9 @@
         "reconfigure_successful": "Configuration updated."
       },
       "entry_type": "AI task",
-      "error": {},
+      "error": {
+        "provider_credentials_required": "Adicione uma credencial ativada para este provedor e serviço em Configurar → Provider Hub."
+      },
       "initiate_flow": {
         "reconfigure": "Reconfigure ai task",
         "user": "Add ai task"
@@ -206,6 +309,19 @@
     }
   },
   "selector": {
+    "credential_action": {
+      "options": {"edit": "Editar", "delete": "Remover"}
+    },
+    "azure_stt_profanity": {
+      "options": {"raw": "Manter", "masked": "Mascarar", "removed": "Remover"}
+    },
+    "rotation_strategy": {
+      "options": {
+        "priority": "Prioridade com desempate pela menos usada",
+        "round_robin": "Rodízio sequencial",
+        "least_used": "Menos usada no mês"
+      }
+    },
     "provider": {
       "options": {
         "google": "Google Gemini",

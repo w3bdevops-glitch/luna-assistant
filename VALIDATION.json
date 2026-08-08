@@ -1,6 +1,6 @@
 {
   "name": "Luna Assistant Prime",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "home_assistant_target": "2026.7.4",
   "validation_scope": "static, unit and package validation; credentialed runtime and physical tests required",
   "architecture": {
@@ -10,17 +10,27 @@
     "provider_hub_registry": true,
     "provider_adapter_contract": true,
     "tools_hub": true,
-    "metrics": true
+    "metrics": true,
+    "credential_manager": true,
+    "persistent_consumption": true,
+    "rotation_and_failover": true
   },
   "provider_matrix": {
     "google": ["ai_task", "conversation", "stt", "tts", "image"],
-    "azure": ["tts"]
+    "azure": ["stt", "tts"]
   },
   "checks": {
     "manifest_version": true,
     "python_syntax": true,
     "json_files_valid": true,
     "provider_selection_is_capability_aware": true,
+    "credential_runtime_selection_test": true,
+    "google_token_accounting": true,
+    "azure_tts_character_accounting": true,
+    "azure_stt_seconds_accounting": true,
+    "provider_and_credential_budgets": true,
+    "retryable_error_failover": true,
+    "cross_provider_stt_tts_failover": true,
     "azure_key_is_password_field": true,
     "azure_key_is_redacted_from_diagnostics": true,
     "azure_wav_is_validated": true,
@@ -34,7 +44,9 @@
     "Install and restart Home Assistant 2026.7.4",
     "Confirm migration of an existing 0.3.x config entry",
     "Exercise Google AI Task, Conversation, STT and TTS with a real API key",
-    "Exercise Azure TTS with a real Speech key and matching region",
+    "Exercise Azure STT and TTS with real Speech keys and matching regions",
+    "Confirm key rotation, cooldown and failover with at least two keys",
+    "Confirm daily/monthly budget blocking and persisted consumption after restart",
     "Confirm Google Search returns current grounded information while HA control stays enabled",
     "Confirm Atom output through the Assist Pipeline",
     "Confirm external playback, completion callback and wake-word barge-in"

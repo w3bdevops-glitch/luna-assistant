@@ -25,13 +25,38 @@ CONF_PROVIDER = "provider"
 PROVIDER_GOOGLE = "google"
 PROVIDER_AZURE = "azure"
 DEFAULT_PROVIDER = PROVIDER_GOOGLE
+# Central Provider Hub credential and consumption controls.
+CONF_CREDENTIALS = "credentials"
+CONF_AUTO_FAILOVER = "auto_failover"
+CONF_FAILOVER_ATTEMPTS = "failover_attempts"
+CONF_FAILOVER_COOLDOWN = "failover_cooldown_seconds"
+CONF_ROTATION_STRATEGY = "rotation_strategy"
+CONF_PROVIDER_LIMITS = "provider_limits"
+DEFAULT_FAILOVER_ATTEMPTS = 3
+DEFAULT_FAILOVER_COOLDOWN = 300
+DEFAULT_ROTATION_STRATEGY = "priority"
+ROTATION_STRATEGIES = ("priority", "round_robin", "least_used")
+
+# Credential editor fields used only by the integration options flow.
+CONF_CREDENTIAL_ID = "credential_id"
+CONF_CREDENTIAL_NAME = "credential_name"
+CONF_CREDENTIAL_ACTION = "credential_action"
+CONF_ENABLED = "enabled"
+CONF_PRIORITY = "priority"
+CONF_DAILY_REQUEST_LIMIT = "daily_request_limit"
+CONF_MONTHLY_REQUEST_LIMIT = "monthly_request_limit"
+CONF_MONTHLY_TOKEN_LIMIT = "monthly_token_limit"
+CONF_MONTHLY_TTS_CHARACTER_LIMIT = "monthly_tts_character_limit"
+CONF_MONTHLY_STT_SECONDS_LIMIT = "monthly_stt_seconds_limit"
 CONF_AZURE_SPEECH_KEY = "azure_speech_key"
 CONF_AZURE_REGION = "azure_region"
 CONF_AZURE_VOICE = "azure_voice"
 CONF_AZURE_OUTPUT_FORMAT = "azure_output_format"
+CONF_AZURE_STT_PROFANITY = "azure_stt_profanity"
 DEFAULT_AZURE_REGION = "brazilsouth"
 DEFAULT_AZURE_VOICE = "pt-BR-FranciscaNeural"
 DEFAULT_AZURE_OUTPUT_FORMAT = "riff-24khz-16bit-mono-pcm"
+DEFAULT_AZURE_STT_PROFANITY = "raw"
 AZURE_PT_BR_VOICES = (
     "pt-BR-FranciscaNeural",
     "pt-BR-ThalitaMultilingualNeural",
@@ -151,15 +176,9 @@ LATENCY_PROFILE_THINKING_LEVEL = {
 }
 
 PERSONALITY_PROMPTS = {
-    "playful": (
-        "Seja leve, brincalhona e espontânea, com humor sutil e sem exageros."
-    ),
-    "warm": (
-        "Seja acolhedora, calma e próxima, mantendo respostas claras e naturais."
-    ),
-    "direct": (
-        "Seja direta, prática e objetiva, sem introduções desnecessárias."
-    ),
+    "playful": ("Seja leve, brincalhona e espontânea, com humor sutil e sem exageros."),
+    "warm": ("Seja acolhedora, calma e próxima, mantendo respostas claras e naturais."),
+    "direct": ("Seja direta, prática e objetiva, sem introduções desnecessárias."),
     "teacher": (
         "Explique com clareza, exemplos simples e tom paciente, sem infantilizar."
     ),

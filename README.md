@@ -1,4 +1,4 @@
-# Luna Assistant Prime v1.0.0
+# Luna Assistant Prime v1.1.0
 
 Integração personalizada para o Home Assistant 2026.7 que fornece serviços de
 IA ao Assist Pipeline sem substituir sua orquestração nativa.
@@ -14,7 +14,7 @@ IA ao Assist Pipeline sem substituir sua orquestração nativa.
 Luna Core não controla microfone, wake word, sessão do Satellite nem barramento
 I²S.
 
-## Entregue na Prime v1
+## Entregue na Prime v1.1
 
 ### Luna Core
 
@@ -29,11 +29,29 @@ capacidade e o Hub seleciona o adaptador configurado.
 | Provedor | AI Task | Conversation | STT | TTS |
 |---|---:|---:|---:|---:|
 | Google Gemini | Sim | Sim | Sim | Sim |
-| Microsoft Azure Speech | Não | Não | Não | Sim |
+| Microsoft Azure Speech | Não | Não | Sim | Sim |
 
 O Google mantém seleção de modelos e fornece Gemini 3.1 Flash-Lite,
-transcrição multimodal e Gemini 3.1 Flash TTS. O Azure TTS usa a API regional
-Speech, SSML e áudio WAV PCM validado.
+transcrição multimodal e Gemini 3.1 Flash TTS. O Azure usa a API regional Speech
+para STT de áudio curto e TTS neural com SSML e áudio WAV PCM validado.
+
+### Lista central de API keys e consumo
+
+Abra **Configurações → Dispositivos e serviços → Luna Assistant Prime →
+Configurar**. O menu do Provider Hub permite:
+
+- adicionar, editar, ativar, desativar e remover várias chaves Google e Azure;
+- nomear cada chave e definir sua prioridade;
+- limitar chamadas diárias e mensais por chave;
+- limitar tokens Google, caracteres Azure TTS e segundos Azure STT;
+- impor limites globais separados para Google e Azure;
+- escolher rotação por prioridade, rodízio ou menor consumo mensal;
+- ativar failover entre chaves e, em STT/TTS, entre Google e Azure; definir
+  número máximo de tentativas e cooldown.
+
+O consumo é persistido no Home Assistant e reinicia automaticamente nos períodos
+diário/mensal. `0` significa ilimitado. Chaves nunca aparecem nos diagnósticos;
+somente nome, região, limites, estado, cooldown e consumo agregado.
 
 ### Luna Tools Hub
 
@@ -51,18 +69,19 @@ da integração.
 
 1. Copie `custom_components/luna_assistant` para `/config/custom_components/`.
 2. Reinicie completamente o Home Assistant.
-3. A entrada existente é migrada automaticamente para a Prime v1; os serviços
+3. A entrada existente é migrada automaticamente para a Prime v1.1; os serviços
    existentes permanecem no Google.
 4. Em **Configurações → Dispositivos e serviços → Luna Assistant Prime**, abra
    ou adicione as entidades AI Task, Conversation, STT e TTS.
 
-## Configurar Azure TTS
+## Configurar Azure STT e TTS
 
-1. Reconfigure uma entidade Luna TTS ou adicione outra.
-2. Em **Provedor**, selecione **Microsoft Azure Speech**.
-3. Envie o formulário uma vez para abrir os campos específicos do Azure.
-4. Informe a chave, a região (por exemplo `brazilsouth`) e a voz.
-5. Para Google Nest/outro media player, selecione essa entidade no campo
+1. Em **Configurar → Adicionar chave Microsoft Azure**, informe nome, chave,
+   região (por exemplo `brazilsouth`), prioridade e limites.
+2. Reconfigure ou adicione uma entidade Luna STT ou Luna TTS.
+3. Em **Provedor**, selecione **Microsoft Azure Speech**.
+4. No TTS, escolha voz e formato; no STT, escolha como tratar palavrões.
+5. Para Google Nest/outro media player, selecione a entidade TTS no campo
    **Provedor Luna TTS** da Luna Conversation.
 
 Voz padrão: `pt-BR-FranciscaNeural`. O formato padrão é

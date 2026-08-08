@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 SOURCE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import time
 from collections import Counter, defaultdict, deque
 from dataclasses import asdict, dataclass
-import time
 from typing import Any
 
 

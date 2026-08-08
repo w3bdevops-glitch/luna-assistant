@@ -23,6 +23,102 @@
       }
     }
   },
+  "options": {
+    "abort": {
+      "google_credential_required": "Keep at least one enabled Google credential.",
+      "no_credentials": "No credentials are configured."
+    },
+    "error": {
+      "invalid_auth": "The key or region could not be validated.",
+      "key_required": "Enter an API key.",
+      "azure_region_required": "Enter the Azure Speech region."
+    },
+    "step": {
+      "init": {
+        "menu_options": {
+          "general": "Rotation, failover and provider budgets",
+          "add_google": "Add Google API key",
+          "add_azure": "Add Microsoft Azure key",
+          "manage_credentials": "Edit or remove a credential",
+          "save": "Save and reload Luna"
+        },
+        "title": "Provider Hub credentials and consumption"
+      },
+      "general": {
+        "data": {
+          "rotation_strategy": "Rotation strategy",
+          "auto_failover": "Automatic failover",
+          "failover_attempts": "Maximum attempts per call",
+          "failover_cooldown_seconds": "Cooldown after provider error (seconds)",
+          "google_daily_request_limit": "Google daily request limit (0 = unlimited)",
+          "google_monthly_request_limit": "Google monthly request limit (0 = unlimited)",
+          "google_monthly_token_limit": "Google monthly token limit (0 = unlimited)",
+          "azure_daily_request_limit": "Azure daily request limit (0 = unlimited)",
+          "azure_monthly_request_limit": "Azure monthly request limit (0 = unlimited)",
+          "azure_monthly_tts_character_limit": "Azure monthly TTS character limit (0 = unlimited)",
+          "azure_monthly_stt_seconds_limit": "Azure monthly STT seconds limit (0 = unlimited)"
+        },
+        "title": "Rotation, failover and provider budgets"
+      },
+      "add_google": {
+        "data": {
+          "credential_name": "Credential name",
+          "api_key": "Google API key",
+          "enabled": "Enabled",
+          "priority": "Priority (lower runs first)",
+          "daily_request_limit": "Daily request limit (0 = unlimited)",
+          "monthly_request_limit": "Monthly request limit (0 = unlimited)",
+          "monthly_token_limit": "Monthly token limit (0 = unlimited)"
+        },
+        "title": "Add Google credential"
+      },
+      "add_azure": {
+        "data": {
+          "credential_name": "Credential name",
+          "api_key": "Azure Speech key",
+          "azure_region": "Azure region",
+          "enabled": "Enabled",
+          "priority": "Priority (lower runs first)",
+          "daily_request_limit": "Daily request limit (0 = unlimited)",
+          "monthly_request_limit": "Monthly request limit (0 = unlimited)",
+          "monthly_tts_character_limit": "Monthly TTS characters (0 = unlimited)",
+          "monthly_stt_seconds_limit": "Monthly STT seconds (0 = unlimited)"
+        },
+        "title": "Add Microsoft Azure credential"
+      },
+      "manage_credentials": {
+        "data": {
+          "credential_id": "Credential",
+          "credential_action": "Action"
+        },
+        "title": "Manage credentials"
+      },
+      "edit_credential": {
+        "data": {
+          "credential_name": "Credential name",
+          "api_key": "New API key (leave blank to keep current)",
+          "azure_region": "Azure region",
+          "enabled": "Enabled",
+          "priority": "Priority (lower runs first)",
+          "daily_request_limit": "Daily request limit (0 = unlimited)",
+          "monthly_request_limit": "Monthly request limit (0 = unlimited)",
+          "monthly_token_limit": "Monthly tokens (0 = unlimited)",
+          "monthly_tts_character_limit": "Monthly TTS characters (0 = unlimited)",
+          "monthly_stt_seconds_limit": "Monthly STT seconds (0 = unlimited)"
+        },
+        "title": "Edit credential"
+      },
+      "delete_credential": {
+        "data": {"confirm": "Confirm removal"},
+        "description": "Remove {credential_name}? Consumption history is retained for diagnostics.",
+        "title": "Remove credential"
+      },
+      "google_required": {
+        "description": "At least one enabled Google credential is required for Conversation and AI Task. Add or enable one before saving.",
+        "title": "Google credential required"
+      }
+    }
+  },
   "config_subentries": {
     "conversation": {
       "abort": {
@@ -31,7 +127,8 @@
       },
       "entry_type": "Conversation agent",
       "error": {
-        "media_player_required": "Select a media player for Google Nest or Other media player output."
+        "media_player_required": "Select a media player for Google Nest or Other media player output.",
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure conversation agent",
@@ -82,7 +179,9 @@
         "reconfigure_successful": "Configuration updated."
       },
       "entry_type": "Speech-to-text",
-      "error": {},
+      "error": {
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+      },
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text",
         "user": "Add speech-to-text"
@@ -104,7 +203,8 @@
             "top_k": "Top K",
             "top_p": "Top P",
             "prompt": "Transcription instructions",
-            "provider": "Provider"
+            "provider": "Provider",
+            "azure_stt_profanity": "Azure profanity handling"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
@@ -125,7 +225,8 @@
         "azure_key_required": "Enter the Azure Speech key.",
         "azure_region_required": "Enter the Azure Speech region.",
         "invalid_auth": "The Azure Speech key or region is invalid.",
-        "cannot_connect": "Unable to connect to Azure Speech."
+        "cannot_connect": "Unable to connect to Azure Speech.",
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure text-to-speech",
@@ -172,7 +273,9 @@
         "reconfigure_successful": "Configuration updated."
       },
       "entry_type": "AI task",
-      "error": {},
+      "error": {
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+      },
       "initiate_flow": {
         "reconfigure": "Reconfigure ai task",
         "user": "Add ai task"
@@ -206,6 +309,19 @@
     }
   },
   "selector": {
+    "credential_action": {
+      "options": {"edit": "Edit", "delete": "Remove"}
+    },
+    "azure_stt_profanity": {
+      "options": {"raw": "Keep", "masked": "Mask", "removed": "Remove"}
+    },
+    "rotation_strategy": {
+      "options": {
+        "priority": "Priority with least-used tie-break",
+        "round_robin": "Round robin",
+        "least_used": "Least used this month"
+      }
+    },
     "provider": {
       "options": {
         "google": "Google Gemini",

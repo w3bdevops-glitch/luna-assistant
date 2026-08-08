@@ -1,25 +1,32 @@
-# Luna Assistant Prime v1.0.0
+# Luna Assistant Prime v1.1.0
 
-Primeira versão da nova arquitetura plugável.
+Segunda versão da arquitetura Prime, agora com credenciais múltiplas, controle
+de consumo e Azure Speech-to-Text.
 
 ## Principais mudanças
 
-- Luna Core como raiz interna da integração.
-- Provider Hub com contrato, registro e seleção por capacidade.
-- Google Gemini para AI Task, Conversation, STT e TTS.
-- Microsoft Azure Speech como provedor TTS nativo.
-- Tools Hub com pesquisa via Google Search Grounding.
-- Métricas internas e erros normalizados nos diagnósticos.
-- Migração não destrutiva da série 0.3.x; subentradas existentes continuam Google.
-- Seleção da entidade Luna TTS usada em saídas externas.
-- Mantidos barge-in, saída Atom, Google Nest e callback ao Luna Satellite.
+- Lista central de API keys para Google Gemini e Microsoft Azure Speech.
+- Interface para adicionar, editar, ativar, priorizar e remover credenciais.
+- Limites por chave e por provedor para chamadas diárias/mensais.
+- Controle de tokens Google, caracteres Azure TTS e segundos Azure STT.
+- Rotação por prioridade, round-robin ou menor consumo mensal.
+- Failover automático entre chaves e, em STT/TTS, entre Google e Azure, com
+  tentativas e cooldown.
+- Contadores persistentes e diagnósticos sem exposição de segredos.
+- Azure STT para áudio curto do Assist Pipeline em WAV/PCM ou OGG/Opus.
+- Migração não destrutiva das chaves Google/Azure já configuradas.
 
-## Limites desta versão
+## Segurança e limites
 
-- Não há rotação automática de várias credenciais.
-- Não há failover automático entre Google TTS e Azure TTS.
+- API keys ficam somente na configuração protegida do Home Assistant.
+- `0` em um limite significa ilimitado.
+- Os limites da Luna são preventivos locais; os portais Google/Azure continuam
+  sendo a fonte oficial de faturamento e cota.
+- O failover entre provedores aplica-se somente a STT/TTS, capacidades que ambos
+  oferecem. Conversation, AI Task e imagens continuam no Google.
 - Whitelist/blacklist de sites ainda não faz parte do Search Grounding.
-- Azure entra apenas como TTS; os outros serviços continuam Google.
 
-Esses recursos podem ser adicionados sobre os contratos atuais sem reescrever
-as entidades do Home Assistant.
+## Status
+
+Versão destinada a testes reais antes de promoção para estável. É necessário
+validar com credenciais reais, Home Assistant, Atom e, se usado, Google Nest.

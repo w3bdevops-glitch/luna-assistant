@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1]
 INIT_SOURCE = (ROOT / "custom_components/luna_assistant/__init__.py").read_text(
     encoding="utf-8"

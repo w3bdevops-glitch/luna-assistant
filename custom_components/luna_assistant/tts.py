@@ -5,9 +5,7 @@
 """Provider-aware text-to-speech support for Luna Assistant Prime."""
 
 from collections.abc import Mapping
-from typing import Any, override
-
-from propcache.api import cached_property
+from typing import Any, ClassVar, override
 
 from homeassistant.components.tts import (
     ATTR_VOICE,
@@ -20,24 +18,25 @@ from homeassistant.const import CONF_PROMPT
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from propcache.api import cached_property
 
 from .const import (
+    AZURE_PT_BR_VOICES,
     CONF_CHAT_MODEL,
     CONF_PROVIDER,
     CONF_SPEAKING_PACE,
-    CONF_VOICE_MOOD,
     CONF_TEMPERATURE,
-    LOGGER,
+    CONF_VOICE_MOOD,
+    DEFAULT_PROVIDER,
     DEFAULT_SPEAKING_PACE,
     DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_VOICE_MOOD,
-    DEFAULT_PROVIDER,
+    LOGGER,
     PROVIDER_AZURE,
-    AZURE_PT_BR_VOICES,
-    SPEAKING_PACE_PROMPTS,
-    VOICE_MOOD_PROMPTS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TTS_MODEL,
+    SPEAKING_PACE_PROMPTS,
+    VOICE_MOOD_PROMPTS,
 )
 from .entity import LunaProviderLLMBaseEntity
 from .provider_hub import ProviderError
@@ -59,16 +58,14 @@ async def async_setup_entry(
         )
 
 
-class LunaTextToSpeechEntity(
-    TextToSpeechEntity, LunaProviderLLMBaseEntity
-):
+class LunaTextToSpeechEntity(TextToSpeechEntity, LunaProviderLLMBaseEntity):
     """Luna Provider Hub text-to-speech entity."""
 
-    _attr_supported_options = [ATTR_VOICE]
+    _attr_supported_options: ClassVar = [ATTR_VOICE]
     # See https://ai.google.dev/gemini-api/docs/speech-generation#languages
     # Note the documentation might not be up to date, e.g. el-GR is not listed
     # there but is supported.
-    _attr_supported_languages = [
+    _attr_supported_languages: ClassVar = [
         "af-ZA",
         "am-ET",
         "ar-EG",
@@ -155,7 +152,7 @@ class LunaTextToSpeechEntity(
     # The Gemini TTS models detect the input language automatically.
     _attr_default_language = "en-US"
     # See https://ai.google.dev/gemini-api/docs/speech-generation#voices
-    _google_voices = [
+    _google_voices: ClassVar = [
         Voice(voice.split(" ", 1)[0].lower(), voice)
         for voice in (
             "Zephyr (Bright)",
@@ -195,7 +192,9 @@ class LunaTextToSpeechEntity(
         """Initialize the TTS entity."""
         super().__init__(config_entry, subentry, RECOMMENDED_TTS_MODEL)
         if subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER) == PROVIDER_AZURE:
-            self._supported_voices = [Voice(voice, voice) for voice in AZURE_PT_BR_VOICES]
+            self._supported_voices = [
+                Voice(voice, voice) for voice in AZURE_PT_BR_VOICES
+            ]
         else:
             self._supported_voices = self._google_voices
 
@@ -234,12 +233,8 @@ class LunaTextToSpeechEntity(
 
         voice_name = options.get(ATTR_VOICE, self._supported_voices[0].voice_id)
 
-        style_prompt = self.subentry.data.get(
-            CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
-        )
-        voice_mood = self.subentry.data.get(
-            CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD
-        )
+        style_prompt = self.subentry.data.get(CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT)
+        voice_mood = self.subentry.data.get(CONF_VOICE_MOOD, DEFAULT_VOICE_MOOD)
         speaking_pace = self.subentry.data.get(
             CONF_SPEAKING_PACE, DEFAULT_SPEAKING_PACE
         )

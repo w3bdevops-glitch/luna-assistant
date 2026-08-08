@@ -1,9 +1,7 @@
 """Static regression checks for Luna's global reliability policy."""
 
 import ast
-
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 CONST_SOURCE = (ROOT / "custom_components/luna_assistant/const.py").read_text()
@@ -18,19 +16,16 @@ def test_reliability_policy_is_global() -> None:
     assert "RELIABILITY_PROMPT," in CONVERSATION_SOURCE
     assert CONVERSATION_SOURCE.index("RELIABILITY_PROMPT,") < (
         CONVERSATION_SOURCE.index("PERSONALITY_PROMPTS.get(personality)")
-)
+    )
 
 
 def _reliability_prompt_value() -> str:
     """Read the constant without importing Home Assistant dependencies."""
     module = ast.parse(CONST_SOURCE)
     for node in module.body:
-        if (
-            isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "RELIABILITY_PROMPT"
-                for target in node.targets
-            )
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "RELIABILITY_PROMPT"
+            for target in node.targets
         ):
             return ast.literal_eval(node.value)
     raise AssertionError("RELIABILITY_PROMPT was not found")

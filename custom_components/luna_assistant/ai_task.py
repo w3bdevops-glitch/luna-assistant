@@ -4,12 +4,13 @@
 
 """Provider-aware AI Task integration for Luna Assistant Prime."""
 
+from __future__ import annotations
+
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, override
 
 from google.genai.errors import APIError
 from google.genai.types import GenerateContentConfig, Part, PartUnionDict
-
 from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -29,6 +30,7 @@ from .entity import (
     LunaProviderLLMBaseEntity,
     async_prepare_files_for_prompt,
 )
+from .provider_hub import ProviderError
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigSubentry
@@ -132,25 +134,26 @@ class LunaAITaskEntity(
         assert isinstance(user_message, conversation.UserContent)
 
         model = self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_IMAGE_MODEL)
-        prompt_parts: list[PartUnionDict] = [user_message.content]
-        if user_message.attachments:
-            prompt_parts.extend(
-                await async_prepare_files_for_prompt(
-                    self.hass,
-                    self._genai_client,
-                    [(a.path, a.mime_type) for a in user_message.attachments],
+
+        async def generate(client):
+            prompt_parts: list[PartUnionDict] = [user_message.content]
+            if user_message.attachments:
+                prompt_parts.extend(
+                    await async_prepare_files_for_prompt(
+                        self.hass,
+                        client,
+                        [(a.path, a.mime_type) for a in user_message.attachments],
+                    )
                 )
+            return await client.aio.models.generate_content(
+                model=model,
+                contents=prompt_parts,
+                config=GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
             )
 
         try:
-            response = await self._genai_client.aio.models.generate_content(
-                model=model,
-                contents=prompt_parts,
-                config=GenerateContentConfig(
-                    response_modalities=["TEXT", "IMAGE"],
-                ),
-            )
-        except (APIError, ValueError) as err:
+            response = await self._provider_hub.async_generate_image(generate)
+        except (APIError, ProviderError, ValueError) as err:
             LOGGER.error("Error generating image: %s", err)
             raise HomeAssistantError(f"Error generating image: {err}") from err
 

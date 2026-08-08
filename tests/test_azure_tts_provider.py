@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1] / "custom_components" / "luna_assistant"
 AZURE = (ROOT / "provider_hub/azure.py").read_text(encoding="utf-8")
 CONFIG = (ROOT / "config_flow.py").read_text(encoding="utf-8")
@@ -14,7 +13,7 @@ assert '"Ocp-Apim-Subscription-Key"' in AZURE
 assert '"X-Microsoft-OutputFormat"' in AZURE
 assert "application/ssml+xml" in AZURE
 assert "validate_wav(audio)" in AZURE
-assert "CONF_AZURE_SPEECH_KEY" in CONFIG
+assert "async_step_add_azure" in CONFIG
 assert "TextSelectorType.PASSWORD" in CONFIG
 assert "CONF_AZURE_SPEECH_KEY" in DIAGNOSTICS
 

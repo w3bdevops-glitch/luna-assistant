@@ -1,15 +1,15 @@
 {
   "product": "Luna Assistant Prime",
-  "version": "1.0.0",
-  "release_channel": "prime-v1",
+  "version": "1.1.0",
+  "release_channel": "prime-v1.1",
   "built_at_utc": "2026-08-08",
   "base_version": "0.3.10-stable",
   "base_commit": "3580d84",
   "target_home_assistant": "2026.7.4",
-  "suggested_commit_message": "[ChatGPT] Luna Assistant Prime v1.0.0: add pluggable Core, Provider Hub and Tools Hub",
+  "suggested_commit_message": "[ChatGPT] Luna Assistant Prime v1.1.0: add credential rotation, consumption control and Azure STT",
   "providers": {
     "google": ["ai_task", "conversation", "stt", "tts", "image"],
-    "azure": ["tts"]
+    "azure": ["stt", "tts"]
   },
   "physical_runtime_validation_completed": false
 }

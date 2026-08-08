@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
-import io
 import math
-from pathlib import Path
 import struct
 import sys
 import types
-import wave
+from pathlib import Path
 
 
 class HomeAssistantError(Exception):
@@ -29,6 +27,7 @@ def load_helpers():
 
     const = types.ModuleType("luna_assistant.const")
     import logging
+
     const.LOGGER = logging.getLogger("luna_assistant")
     sys.modules["luna_assistant.const"] = const
 
@@ -56,9 +55,7 @@ def pcm(duration=0.20, rate=24000):
 
 helpers = load_helpers()
 raw = pcm()
-wav_data = helpers.convert_to_wav(
-    raw, "audio/l16; rate=24000; channels=1"
-)
+wav_data = helpers.convert_to_wav(raw, "audio/l16; rate=24000; channels=1")
 info = helpers.validate_wav(wav_data)
 assert wav_data[:4] == b"RIFF"
 assert wav_data[8:12] == b"WAVE"

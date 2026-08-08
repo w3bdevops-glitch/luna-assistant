@@ -18,9 +18,12 @@ Exemplo futuro: OpenAI.
 4. Implemente somente os métodos correspondentes:
    `async_handle_chat_log`, `async_transcribe` e/ou `async_synthesize`.
 5. Registre uma instância em `LunaProviderHub.__init__`.
-6. Adicione o formulário de credenciais do provedor. A lista de provedores
+6. Adicione o formulário de credenciais do provedor no Options Flow e declare
+   a unidade de consumo de cada capacidade. Use `CredentialManager`; não leia
+   chaves diretamente da entidade.
+7. A lista de provedores
    exibida para cada serviço vem automaticamente de `available_providers()`.
-7. Acrescente traduções e testes do adaptador.
+8. Acrescente traduções e testes do adaptador, rotação e failover.
 
 Não altere o Luna Satellite, o Assist Pipeline ou as entidades de plataforma.
 As respostas devem usar `ProviderError` e áudio deve usar `AudioResult`.

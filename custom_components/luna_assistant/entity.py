@@ -4,17 +4,19 @@
 
 """Conversation support for the Luna Assistant integration."""
 
+from __future__ import annotations
+
 import asyncio
 import base64
 import codecs
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
-from dataclasses import dataclass, replace
 import datetime
 import mimetypes
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
-import time
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+import voluptuous as vol
 from google.genai import Client
 from google.genai.errors import APIError, ClientError
 from google.genai.types import (
@@ -36,24 +38,24 @@ from google.genai.types import (
     Tool,
     ToolListUnion,
 )
-import voluptuous as vol
-from voluptuous_openapi import convert
-
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import device_registry as dr, llm
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import llm
 from homeassistant.helpers.entity import Entity
+from voluptuous_openapi import convert
 
 from .const import (
-    CONF_CHAT_MODEL,
     CONF_AZURE_VOICE,
+    CONF_CHAT_MODEL,
     CONF_DANGEROUS_BLOCK_THRESHOLD,
     CONF_HARASSMENT_BLOCK_THRESHOLD,
     CONF_HATE_BLOCK_THRESHOLD,
     CONF_LATENCY_PROFILE,
     CONF_MAX_TOKENS,
+    CONF_PROVIDER,
     CONF_SEXUAL_BLOCK_THRESHOLD,
     CONF_TEMPERATURE,
     CONF_THINKING_BUDGET,
@@ -61,7 +63,6 @@ from .const import (
     CONF_TOP_K,
     CONF_TOP_P,
     CONF_USE_GOOGLE_SEARCH_TOOL,
-    CONF_PROVIDER,
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PROVIDER,
     DOMAIN,
@@ -69,6 +70,7 @@ from .const import (
     LATENCY_PROFILE_MAX_TOKENS,
     LATENCY_PROFILE_THINKING_LEVEL,
     LOGGER,
+    PROVIDER_AZURE,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_HARM_BLOCK_THRESHOLD,
     RECOMMENDED_MAX_TOKENS,
@@ -77,7 +79,6 @@ from .const import (
     RECOMMENDED_THINKING_LEVEL,
     RECOMMENDED_TOP_K,
     RECOMMENDED_TOP_P,
-    PROVIDER_AZURE,
     TIMEOUT_MILLIS,
 )
 
@@ -405,18 +406,19 @@ def _convert_content(
                     args=_escape_decode(tool_call.tool_args),
                 )
             )
-            if details := next(
-                (
-                    d
-                    for d in part_details
-                    if d.part_type == "function_call" and d.index == index
-                ),
-                None,
-            ):
-                if details.thought_signature:
-                    parts[-1].thought_signature = base64.b64decode(
-                        details.thought_signature
-                    )
+            if (
+                details := next(
+                    (
+                        d
+                        for d in part_details
+                        if d.part_type == "function_call" and d.index == index
+                    ),
+                    None,
+                )
+            ) and details.thought_signature:
+                parts[-1].thought_signature = base64.b64decode(
+                    details.thought_signature
+                )
 
     return Content(role="model", parts=parts)
 
@@ -424,14 +426,20 @@ def _convert_content(
 async def _transform_stream(
     chat_log: conversation.ChatLog,
     result: AsyncIterator[GenerateContentResponse],
+    usage_observer=None,
 ) -> AsyncGenerator[conversation.AssistantContentDeltaDict]:
     new_message = True
     part_details: list[PartDetails] = []
+    latest_usage = (0, 0)
     try:
         async for response in result:
             LOGGER.debug("Received response chunk: %s", response)
 
             if (usage := response.usage_metadata) is not None:
+                latest_usage = (
+                    int(usage.prompt_token_count or 0),
+                    int(usage.candidates_token_count or 0),
+                )
                 chat_log.async_trace(
                     {
                         "stats": {
@@ -544,6 +552,8 @@ async def _transform_stream(
 
         if part_details:
             yield {"native": ContentDetails(part_details=part_details)}
+        if usage_observer is not None:
+            usage_observer(*latest_usage)
 
     except (
         APIError,
@@ -551,9 +561,8 @@ async def _transform_stream(
     ) as err:
         LOGGER.error("Error sending message: %s %s", type(err), err)
         if isinstance(err, APIError):
-            message = err.message
-        else:
-            message = type(err).__name__
+            raise
+        message = type(err).__name__
         error = f"{ERROR_GETTING_RESPONSE}: {message}"
         raise HomeAssistantError(error) from err
 
@@ -597,38 +606,13 @@ class LunaProviderLLMBaseEntity(Entity):
         max_iterations: int = MAX_TOOL_ITERATIONS,
     ) -> None:
         """Route chat/data generation through the pluggable Provider Hub."""
-        started = time.monotonic()
-        provider = str(self.subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER))
-        service = (
-            "ai_task"
-            if self.subentry.subentry_type == "ai_task_data"
-            else "conversation"
-        )
-        try:
-            await self._provider_hub.async_handle_chat_log(
-                options=self.subentry.data,
-                entity=self,
-                chat_log=chat_log,
-                structure=structure,
-                default_max_tokens=default_max_tokens,
-                max_iterations=max_iterations,
-            )
-        except Exception:  # noqa: BLE001
-            self._core.metrics.record(
-                service=service,
-                provider=provider,
-                operation="generate",
-                started=started,
-                success=False,
-                error_category="provider_error",
-            )
-            raise
-        self._core.metrics.record(
-            service=service,
-            provider=provider,
-            operation="generate",
-            started=started,
-            success=True,
+        await self._provider_hub.async_handle_chat_log(
+            options=self.subentry.data,
+            entity=self,
+            chat_log=chat_log,
+            structure=structure,
+            default_max_tokens=default_max_tokens,
+            max_iterations=max_iterations,
         )
 
     async def _async_handle_google_chat_log(
@@ -637,9 +621,12 @@ class LunaProviderLLMBaseEntity(Entity):
         structure: vol.Schema | None = None,
         default_max_tokens: int | None = None,
         max_iterations: int = MAX_TOOL_ITERATIONS,
+        client=None,
+        usage_observer=None,
     ) -> None:
         """Generate an answer for the chat log."""
         options = self.subentry.data
+        genai_client = client or self._genai_client
 
         tools: ToolListUnion | None = None
         if chat_log.llm_api:
@@ -651,9 +638,7 @@ class LunaProviderLLMBaseEntity(Entity):
         # Gemini 3 supports combining built-in Google Search grounding with
         # custom function tools.  This lets Luna keep the Home Assistant LLM
         # API enabled while the model selectively searches for current facts.
-        latency_profile = options.get(
-            CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
-        )
+        latency_profile = options.get(CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE)
 
         tools = self._core.tools.build_google_tools(
             tools,
@@ -662,9 +647,7 @@ class LunaProviderLLMBaseEntity(Entity):
 
         configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
         model_name = (
-            RECOMMENDED_CHAT_MODEL
-            if latency_profile == "fast"
-            else configured_model
+            RECOMMENDED_CHAT_MODEL if latency_profile == "fast" else configured_model
         )
         # Avoid INVALID_ARGUMENT Developer instruction is not enabled for <model>
         supports_system_instruction = (
@@ -750,7 +733,7 @@ class LunaProviderLLMBaseEntity(Entity):
                 Content(role="model", parts=[Part.from_text(text="Ok")]),
                 *messages,
             ]
-        chat = self._genai_client.aio.chats.create(
+        chat = genai_client.aio.chats.create(
             model=model_name, history=messages, config=generate_content_config
         )
         user_message = chat_log.content[-1]
@@ -760,7 +743,7 @@ class LunaProviderLLMBaseEntity(Entity):
             chat_request.extend(
                 await async_prepare_files_for_prompt(
                     self.hass,
-                    self._genai_client,
+                    genai_client,
                     [(a.path, a.mime_type) for a in user_message.attachments],
                 )
             )
@@ -777,6 +760,8 @@ class LunaProviderLLMBaseEntity(Entity):
                 ValueError,
             ) as err:
                 LOGGER.error("Error sending message: %s %s", type(err), err)
+                if isinstance(err, APIError):
+                    raise
                 error = ERROR_GETTING_RESPONSE
                 raise HomeAssistantError(error) from err
 
@@ -786,7 +771,11 @@ class LunaProviderLLMBaseEntity(Entity):
                         content
                         async for content in chat_log.async_add_delta_content_stream(
                             self.entity_id,
-                            _transform_stream(chat_log, chat_response_generator),
+                            _transform_stream(
+                                chat_log,
+                                chat_response_generator,
+                                usage_observer,
+                            ),
                         )
                         if isinstance(content, conversation.ToolResultContent)
                     ]
@@ -801,14 +790,10 @@ class LunaProviderLLMBaseEntity(Entity):
     ) -> GenerateContentConfig:
         """Create the GenerateContentConfig for the LLM."""
         options = self.subentry.data
-        latency_profile = options.get(
-            CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
-        )
+        latency_profile = options.get(CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE)
         configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
         model = (
-            RECOMMENDED_CHAT_MODEL
-            if latency_profile == "fast"
-            else configured_model
+            RECOMMENDED_CHAT_MODEL if latency_profile == "fast" else configured_model
         )
 
         configured_thinking_level = options.get(

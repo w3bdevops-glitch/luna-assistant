@@ -17,9 +17,7 @@ class ProviderRegistry:
             raise ValueError(f"Provider already registered: {adapter.name}")
         self._adapters[adapter.name] = adapter
 
-    def get(
-        self, provider: str, capability: ProviderCapability
-    ) -> LunaProviderAdapter:
+    def get(self, provider: str, capability: ProviderCapability) -> LunaProviderAdapter:
         adapter = self._adapters.get(provider)
         if adapter is None:
             raise ProviderError(

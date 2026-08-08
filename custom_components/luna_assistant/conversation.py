@@ -14,6 +14,8 @@ from homeassistant.components.tts.const import (
     ATTR_CACHE,
     ATTR_LANGUAGE,
     ATTR_MESSAGE,
+)
+from homeassistant.components.tts.const import (
     DOMAIN as TTS_DOMAIN,
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -113,9 +115,7 @@ class LunaConversationEntity(
         options = self.subentry.data
 
         personality = options.get(CONF_PERSONALITY, DEFAULT_PERSONALITY)
-        response_length = options.get(
-            CONF_RESPONSE_LENGTH, DEFAULT_RESPONSE_LENGTH
-        )
+        response_length = options.get(CONF_RESPONSE_LENGTH, DEFAULT_RESPONSE_LENGTH)
         latency_profile = options.get(CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE)
 
         base_prompt = options.get(CONF_PROMPT, "")
@@ -143,14 +143,10 @@ class LunaConversationEntity(
 
         await self._async_handle_chat_log(
             chat_log,
-            max_iterations=LATENCY_PROFILE_TOOL_ITERATIONS.get(
-                latency_profile, 10
-            ),
+            max_iterations=LATENCY_PROFILE_TOOL_ITERATIONS.get(latency_profile, 10),
         )
 
-        result = conversation.async_get_result_from_chat_log(
-            user_input, chat_log
-        )
+        result = conversation.async_get_result_from_chat_log(user_input, chat_log)
         await self._async_route_audio_output(result, user_input)
         return result
 
@@ -190,9 +186,9 @@ class LunaConversationEntity(
             return
 
         media_player_state = self.hass.states.get(configured_entity_id)
-        if (
-            media_player_state is None
-            or media_player_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN)
+        if media_player_state is None or media_player_state.state in (
+            STATE_UNAVAILABLE,
+            STATE_UNKNOWN,
         ):
             LOGGER.warning(
                 "Audio target entity_id %s is unavailable; falling back to Atom",
@@ -210,9 +206,7 @@ class LunaConversationEntity(
 
         started = time.monotonic()
         provider: str | None = None
-        if await self._async_route_with_luna_tts(
-            target_entity_id, speech, user_input
-        ):
+        if await self._async_route_with_luna_tts(target_entity_id, speech, user_input):
             provider = "tts.speak / Luna Provider Hub"
         elif await self._async_route_with_microsoft_tts(
             target_entity_id, speech, user_input
@@ -233,9 +227,7 @@ class LunaConversationEntity(
         # start STT; saying "Ei, Luna" invokes the barge-in service.
         result.response.speech.clear()
         self.hass.async_create_task(
-            self._async_notify_satellites_when_external_audio_finishes(
-                target_entity_id
-            )
+            self._async_notify_satellites_when_external_audio_finishes(target_entity_id)
         )
         LOGGER.info(
             "Luna audio routed to entity_id %s using %s; wake-word barge-in "
@@ -269,14 +261,10 @@ class LunaConversationEntity(
 
         services = self.hass.services.async_services().get("esphome", {})
         matching = [
-            name
-            for name in services
-            if name.endswith("_luna_external_audio_finished")
+            name for name in services if name.endswith("_luna_external_audio_finished")
         ]
         for service in matching:
-            await self.hass.services.async_call(
-                "esphome", service, {}, blocking=False
-            )
+            await self.hass.services.async_call("esphome", service, {}, blocking=False)
 
         LOGGER.info(
             "External audio finished on %s; notified %d Luna satellite(s)",
@@ -338,9 +326,7 @@ class LunaConversationEntity(
                     ATTR_MEDIA_PLAYER_ENTITY_ID: target_entity_id,
                     ATTR_MESSAGE: speech,
                     ATTR_CACHE: True,
-                    ATTR_LANGUAGE: (
-                        user_input.language or self.hass.config.language
-                    ),
+                    ATTR_LANGUAGE: (user_input.language or self.hass.config.language),
                 },
                 blocking=True,
                 context=user_input.context,

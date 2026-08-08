@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1] / "custom_components" / "luna_assistant"
 TOOLS = (ROOT / "tools_hub.py").read_text(encoding="utf-8")
 ENTITY = (ROOT / "entity.py").read_text(encoding="utf-8")

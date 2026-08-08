@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import io
 import re
 import wave
+from dataclasses import dataclass
 
 from homeassistant.exceptions import HomeAssistantError
 
@@ -122,15 +122,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int]:
             ) from exc
 
     if bits_per_sample not in (8, 16, 24, 32):
-        raise HomeAssistantError(
-            f"Unsupported PCM bit depth: {bits_per_sample}"
-        )
+        raise HomeAssistantError(f"Unsupported PCM bit depth: {bits_per_sample}")
     if not 8000 <= rate <= 192000:
         raise HomeAssistantError(f"Invalid PCM sample rate: {rate}")
     if channels not in (1, 2):
-        raise HomeAssistantError(
-            f"Unsupported PCM channel count: {channels}"
-        )
+        raise HomeAssistantError(f"Unsupported PCM channel count: {channels}")
 
     return {
         "bits_per_sample": bits_per_sample,
@@ -156,17 +152,11 @@ def validate_wav(wav_audio: bytes) -> WavInfo:
         raise HomeAssistantError(f"Invalid Luna TTS WAV: {exc}") from exc
 
     if info.channels not in (1, 2):
-        raise HomeAssistantError(
-            f"Unsupported WAV channel count: {info.channels}"
-        )
+        raise HomeAssistantError(f"Unsupported WAV channel count: {info.channels}")
     if info.sample_width not in (1, 2, 3, 4):
-        raise HomeAssistantError(
-            f"Unsupported WAV sample width: {info.sample_width}"
-        )
+        raise HomeAssistantError(f"Unsupported WAV sample width: {info.sample_width}")
     if not 8000 <= info.sample_rate <= 192000:
-        raise HomeAssistantError(
-            f"Invalid WAV sample rate: {info.sample_rate}"
-        )
+        raise HomeAssistantError(f"Invalid WAV sample rate: {info.sample_rate}")
     if info.frame_count <= 0:
         raise HomeAssistantError("Generated WAV contains no frames")
 

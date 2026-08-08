@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0-prime
+
+- Criado gerenciador central de múltiplas API keys Google e Azure.
+- Adicionados cadastro, edição, ativação, prioridade e remoção pela interface.
+- Adicionados limites diários/mensais de chamadas por chave e por provedor.
+- Adicionados limites de tokens Google, caracteres Azure TTS e segundos Azure STT.
+- Adicionadas rotação por prioridade, round-robin e menor consumo mensal.
+- Adicionados failover automático, máximo de tentativas e cooldown por chave.
+- Adicionado failover entre Google e Azure para STT/TTS após esgotar as chaves
+  elegíveis do provedor preferido.
+- Consumo persistido no Home Assistant e exposto sem segredos nos diagnósticos.
+- Adicionado Microsoft Azure Speech-to-Text para WAV/PCM e OGG/Opus em 16 kHz.
+- Google AI Task, Conversation, STT, TTS e imagem passaram pelo mesmo controle.
+- Config entry minor version 8 com migração das chaves da Prime v1.0/0.3.x.
+
 ## 1.0.0-prime
 
 - Criado Luna Core, sem assumir responsabilidades do Assist/Satellite.

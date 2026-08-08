@@ -35,9 +35,7 @@ async def async_setup_entry(
         )
 
 
-class LunaSttEntity(
-    stt.SpeechToTextEntity, LunaProviderLLMBaseEntity
-):
+class LunaSttEntity(stt.SpeechToTextEntity, LunaProviderLLMBaseEntity):
     """Luna Provider Hub speech-to-text entity."""
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
@@ -254,9 +252,8 @@ class LunaSttEntity(
                 audio_data=audio_data,
                 mime_type=f"audio/{metadata.format.value}",
                 prompt=prompt,
-                model=self.subentry.data.get(
-                    CONF_CHAT_MODEL, RECOMMENDED_STT_MODEL
-                ),
+                language=metadata.language or "pt-BR",
+                model=self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_STT_MODEL),
                 config=self.create_generate_content_config(),
             )
         except ProviderError as err:
