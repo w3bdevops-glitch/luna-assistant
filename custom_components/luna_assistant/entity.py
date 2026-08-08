@@ -595,28 +595,16 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
                 for tool in chat_log.llm_api.tools
             ]
 
-        # Using search grounding allows the model to retrieve
-        # information from the web, however, it may interfere
-        # with how the model decides to use some tools, or
-        # entities for example weather entity may be
-        # disregarded if the model chooses to Google it.
+        # Gemini 3 supports combining built-in Google Search grounding with
+        # custom function tools.  This lets Luna keep the Home Assistant LLM
+        # API enabled while the model selectively searches for current facts.
         latency_profile = options.get(
             CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
         )
 
-        if (
-            options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True
-            and latency_profile != "fast"
-        ):
+        if options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True:
             tools = tools or []
             tools.append(Tool(google_search=GoogleSearch()))
-        elif (
-            options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True
-            and latency_profile == "fast"
-        ):
-            LOGGER.debug(
-                "Google Search disabled for this request by Fast latency profile"
-            )
 
         configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
         model_name = (

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.9-stable
+
+- Ativada a pesquisa seletiva na internet com Google Search Grounding.
+- A Luna pode pesquisar informações atuais e controlar o Home Assistant na
+  mesma conversa usando a combinação de ferramentas suportada pelo Gemini 3.
+- A pesquisa agora funciona também no perfil Rápido.
+- Novas entidades Luna Conversation recebem a pesquisa habilitada por padrão;
+  entidades existentes podem ativá-la em Reconfigurar.
+- Mantido todo o comportamento de áudio e barge-in da `v0.3.8-stable`.
+
 ## 0.3.8-stable
 
 - Adicionado acompanhamento do estado do Google Nest/player externo após o TTS.

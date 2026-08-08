@@ -31,7 +31,6 @@
       },
       "entry_type": "Conversation agent",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected.",
         "media_player_required": "Select a media player for Google Nest or Other media player output."
       },
       "initiate_flow": {
@@ -54,7 +53,7 @@
             "thinking_level": "Thinking level",
             "top_k": "Top K",
             "top_p": "Top P",
-            "enable_google_search_tool": "Enable Google Search tool",
+            "enable_google_search_tool": "Search the internet with Google",
             "llm_hass_api": "Control Home Assistant",
             "prompt": "Instructions",
             "personality": "Personality",
@@ -67,7 +66,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected.",
+            "enable_google_search_tool": "Lets Luna selectively search for current information. Compatible with Home Assistant control on Gemini 3.",
             "audio_output": "Atom uses the normal Assist Pipeline. Google Nest and Other media player prefer Microsoft TTS when available, then fall back to Luna TTS.",
             "output_media_player": "Required for Google Nest or Other media player. The selected media_player entity_id is used directly; the friendly name is never sent to TTS."
           }
@@ -81,7 +80,6 @@
       },
       "entry_type": "Speech-to-text",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text",
@@ -109,7 +107,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Lets Luna selectively search for current information. Compatible with Home Assistant control on Gemini 3."
           }
         }
       }
@@ -121,7 +119,6 @@
       },
       "entry_type": "Text-to-speech",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure text-to-speech",
@@ -151,7 +148,7 @@
             "prompt": "Describe tone, pace, emotion, and speaking style. Luna sends these instructions to the TTS model before the response.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Lets Luna selectively search for current information. Compatible with Home Assistant control on Gemini 3."
           }
         }
       }
@@ -163,7 +160,6 @@
       },
       "entry_type": "AI task",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure ai task",
@@ -190,7 +186,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Lets Luna selectively search for current information. Compatible with Home Assistant control on Gemini 3."
           }
         }
       }

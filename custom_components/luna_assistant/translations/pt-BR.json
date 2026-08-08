@@ -31,7 +31,6 @@
       },
       "entry_type": "Conversation agent",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected.",
         "media_player_required": "Selecione um media player para usar Google Nest ou Outro media player."
       },
       "initiate_flow": {
@@ -54,7 +53,7 @@
             "thinking_level": "Thinking level",
             "top_k": "Top K",
             "top_p": "Top P",
-            "enable_google_search_tool": "Enable Google Search tool",
+            "enable_google_search_tool": "Pesquisar na internet com o Google",
             "llm_hass_api": "Control Home Assistant",
             "prompt": "Instructions",
             "personality": "Personalidade",
@@ -67,7 +66,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected.",
+            "enable_google_search_tool": "Permite que a Luna pesquise seletivamente informações atuais. Compatível com o controle do Home Assistant no Gemini 3.",
             "audio_output": "Atom usa o Assist Pipeline normal. Google Nest e Outro media player preferem Microsoft TTS quando disponível e usam Luna TTS como fallback.",
             "output_media_player": "Obrigatório para Google Nest ou Outro media player. O entity_id do media_player selecionado é usado diretamente; o nome amigável nunca é enviado ao TTS."
           }
@@ -81,7 +80,6 @@
       },
       "entry_type": "Speech-to-text",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text",
@@ -109,7 +107,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Permite que a Luna pesquise seletivamente informações atuais. Compatível com o controle do Home Assistant no Gemini 3."
           }
         }
       }
@@ -121,7 +119,6 @@
       },
       "entry_type": "Text-to-speech",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure text-to-speech",
@@ -151,7 +148,7 @@
             "prompt": "Descreva o tom, ritmo, emoção e forma de falar. A Luna envia essas instruções ao modelo antes do texto.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Permite que a Luna pesquise seletivamente informações atuais. Compatível com o controle do Home Assistant no Gemini 3."
           }
         }
       }
@@ -163,7 +160,6 @@
       },
       "entry_type": "AI task",
       "error": {
-        "invalid_google_search_option": "Google Search cannot be enabled while a Home Assistant control API is selected."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure ai task",
@@ -190,7 +186,7 @@
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "enable_google_search_tool": "Works only when no Home Assistant control API is selected."
+            "enable_google_search_tool": "Permite que a Luna pesquise seletivamente informações atuais. Compatível com o controle do Home Assistant no Gemini 3."
           }
         }
       }

@@ -1,10 +1,10 @@
 {
   "name": "Luna Assistant",
-  "version": "0.3.8-stable",
+  "version": "0.3.9-stable",
   "home_assistant_target": "2026.7.4",
   "validation_scope": "static build validation; runtime installation still required",
   "checks": {
-    "manifest_version_0_3_8": true,
+    "manifest_version_0_3_9": true,
     "python_syntax": true,
     "json_files_valid": true,
     "microsoft_tts_service_preserved": true,
@@ -18,7 +18,10 @@
     "configured_external_player_auto_discovery": true,
     "external_player_completion_monitor": true,
     "satellite_follow_up_notification": true,
-    "firmware_change_required": true
+    "firmware_change_required": false,
+    "google_search_grounding_enabled": true,
+    "google_search_combined_with_ha_tools": true,
+    "google_search_available_in_fast_profile": true
   },
   "runtime_test_required": [
     "Install and restart Home Assistant",
@@ -29,6 +32,10 @@
     "Confirm ordinary room noise does not create a new conversation turn",
     "Confirm continuous conversation opens only after the Nest becomes idle",
     "Confirm Wake Chime does not produce Parent bus is busy",
-    "Confirm Atom fallback when the external target is unavailable"
+    "Confirm Atom fallback when the external target is unavailable",
+    "Enable Internet search on an existing Luna Conversation",
+    "Ask for today's news and confirm a current grounded response",
+    "Keep Home Assistant control enabled and confirm a light command still works",
+    "Ask one prompt that combines a Home Assistant action and a current-information question"
   ]
 }

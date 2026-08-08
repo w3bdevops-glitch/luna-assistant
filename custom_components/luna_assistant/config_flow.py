@@ -292,16 +292,6 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                 ):
                     errors[CONF_OUTPUT_MEDIA_PLAYER] = "media_player_required"
 
-                # Don't allow Google Search together with a Home Assistant
-                # control API. The Fast profile also disables search at runtime.
-                if (
-                    user_input.get(CONF_LLM_HASS_API)
-                    and user_input.get(CONF_USE_GOOGLE_SEARCH_TOOL, False) is True
-                ):
-                    errors[CONF_USE_GOOGLE_SEARCH_TOOL] = (
-                        "invalid_google_search_option"
-                    )
-
                 if not errors:
                     if self._is_new:
                         return self.async_create_entry(

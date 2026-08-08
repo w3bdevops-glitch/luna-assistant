@@ -49,3 +49,26 @@ Substitua `custom_components/luna_assistant`, reinicie o Home Assistant e teste
 uma conversa pelo satélite com a saída externa selecionada.
 
 Requer Luna Satellite `v0.2.3-alpha` para restaurar a conversa contínua segura.
+# Luna Assistant v0.3.9-stable
+
+Esta versão adiciona pesquisa seletiva na internet à Luna Conversation por
+meio do Google Search Grounding. O Gemini decide quando uma pergunta exige
+informações atuais; perguntas estáveis continuam sendo respondidas sem busca.
+
+A pesquisa pode permanecer habilitada junto com a API Assist do Home
+Assistant, portanto a mesma Luna continua controlando a casa. Ela também está
+disponível no perfil de latência Rápido.
+
+Para uma Luna Conversation já existente, abra **Reconfigurar**, ative
+**Pesquisa na internet (Google Search)** e salve. Novas entidades de conversa
+já recebem a opção habilitada.
+
+Exemplos para teste:
+
+- "Luna, pesquise as notícias de hoje."
+- "Qual foi o último resultado do Palmeiras?"
+- "Vai chover amanhã em São Paulo?"
+- "Acenda a luz da sala e depois me diga a previsão do tempo."
+
+O Google contabiliza as consultas de Search Grounding separadamente conforme
+as regras e cotas do projeto Gemini configurado.
