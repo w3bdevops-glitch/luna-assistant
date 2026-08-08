@@ -45,6 +45,7 @@ from .const import (
     LATENCY_PROFILE_TOOL_ITERATIONS,
     LOGGER,
     PERSONALITY_PROMPTS,
+    RELIABILITY_PROMPT,
     RESPONSE_LENGTH_PROMPTS,
 )
 from .entity import GoogleGenerativeAILLMBaseEntity
@@ -120,6 +121,7 @@ class GoogleGenerativeAIConversationEntity(
         preset_prompt = " ".join(
             part
             for part in (
+                RELIABILITY_PROMPT,
                 PERSONALITY_PROMPTS.get(personality),
                 RESPONSE_LENGTH_PROMPTS.get(response_length),
                 LATENCY_PROFILE_PROMPTS.get(latency_profile),

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.10-stable
+
+- Adicionada política global e obrigatória de confiabilidade à Luna Conversation.
+- A Luna foi instruída a nunca inventar fatos, nomes, números, datas, receitas,
+  resultados ou fontes, independentemente do perfil de latência ou personalidade.
+- Informações atuais, específicas, verificáveis ou incertas devem acionar a pesquisa
+  na internet quando ela estiver disponível.
+- Quando não houver confirmação suficiente, a Luna deve admitir que não sabe; se a
+  pesquisa falhar, deve informar que não conseguiu confirmar naquele momento.
+- Fatos confirmados, hipóteses, sugestões e criações devem ser diferenciados.
+- Mantidos o Google Search Grounding e todo o comportamento de áudio da `v0.3.9`.
+
 ## 0.3.9-stable
 
 - Ativada a pesquisa seletiva na internet com Google Search Grounding.

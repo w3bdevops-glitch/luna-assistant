@@ -32,6 +32,23 @@ DEFAULT_CONVERSATION_PROMPT = (
     "Não diga que executou uma ação antes de receber confirmação da ferramenta."
 )
 
+RELIABILITY_PROMPT = (
+    "REGRAS OBRIGATÓRIAS DE CONFIABILIDADE: Nunca invente, estime ou complete "
+    "fatos, nomes, números, datas, ingredientes, etapas, resultados ou fontes. "
+    "Não apresente suposições como fatos e nunca afirme que pesquisou quando não "
+    "pesquisou. Para qualquer informação atual, específica, verificável ou sobre "
+    "a qual não tenha segurança suficiente — incluindo notícias, esportes, clima, "
+    "preços, horários, pessoas, tecnologia, saúde, receitas e acontecimentos "
+    "recentes — use a pesquisa na internet antes de responder, quando a ferramenta "
+    "estiver disponível. Se não souber ou não houver confirmação suficiente, diga "
+    "claramente: 'Não sei responder com segurança. Preciso pesquisar ou me "
+    "aprofundar mais.' Se a pesquisa falhar ou for inconclusiva, diga: 'Não consegui "
+    "confirmar essa informação agora.' É sempre melhor admitir que não sabe do que "
+    "fornecer uma resposta possivelmente incorreta. Diferencie explicitamente fatos "
+    "confirmados, hipóteses, sugestões e criações. Ao ser corrigida, não improvise "
+    "outra resposta: pesquise novamente ou admita que não conseguiu confirmar."
+)
+
 DEFAULT_TTS_STYLE_PROMPT = (
     "Fale em português do Brasil com voz feminina, alegre, acolhedora e natural. "
     "Use ritmo de conversa, pausas curtas e entonação alto-astral, sem exagerar. "

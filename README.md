@@ -1,4 +1,10 @@
-# Luna Assistant v0.3.8-stable
+# Luna Assistant v0.3.10-stable
+
+## Respostas mais confiáveis
+
+A Luna Conversation aplica uma política global de confiabilidade: não deve inventar
+informações, deve pesquisar fatos atuais ou incertos quando a pesquisa estiver
+disponível e deve admitir claramente quando não conseguir confirmar uma resposta.
 
 ## Conversa contínua segura
 

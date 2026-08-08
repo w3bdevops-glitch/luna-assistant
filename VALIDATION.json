@@ -1,10 +1,10 @@
 {
   "name": "Luna Assistant",
-  "version": "0.3.9-stable",
+  "version": "0.3.10-stable",
   "home_assistant_target": "2026.7.4",
   "validation_scope": "static build validation; runtime installation still required",
   "checks": {
-    "manifest_version_0_3_9": true,
+    "manifest_version_0_3_10": true,
     "python_syntax": true,
     "json_files_valid": true,
     "microsoft_tts_service_preserved": true,
@@ -21,7 +21,10 @@
     "firmware_change_required": false,
     "google_search_grounding_enabled": true,
     "google_search_combined_with_ha_tools": true,
-    "google_search_available_in_fast_profile": true
+    "google_search_available_in_fast_profile": true,
+    "global_reliability_prompt_enabled": true,
+    "uncertain_information_requires_search": true,
+    "unconfirmed_answer_fallback_defined": true
   },
   "runtime_test_required": [
     "Install and restart Home Assistant",
@@ -36,6 +39,8 @@
     "Enable Internet search on an existing Luna Conversation",
     "Ask for today's news and confirm a current grounded response",
     "Keep Home Assistant control enabled and confirm a light command still works",
-    "Ask one prompt that combines a Home Assistant action and a current-information question"
+    "Ask one prompt that combines a Home Assistant action and a current-information question",
+    "Ask for a fact that cannot be confirmed and verify Luna admits uncertainty",
+    "Ask for a current sports result and verify Luna searches instead of relying on model memory"
   ]
 }
