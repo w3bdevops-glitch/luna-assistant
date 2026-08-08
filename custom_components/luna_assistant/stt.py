@@ -2,13 +2,10 @@
 # Derived from Home Assistant Core's Google Gemini integration,
 # licensed under the Apache License 2.0.
 
-"""Speech to text support for Google Generative AI."""
+"""Provider-aware speech-to-text support for Luna Assistant Prime."""
 
 from collections.abc import AsyncIterable
 from typing import override
-
-from google.genai.errors import APIError, ClientError
-from google.genai.types import Part
 
 from homeassistant.components import stt
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -17,8 +14,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_CHAT_MODEL, DEFAULT_STT_PROMPT, LOGGER, RECOMMENDED_STT_MODEL
-from .entity import GoogleGenerativeAILLMBaseEntity
+from .entity import LunaProviderLLMBaseEntity
 from .helpers import convert_to_wav
+from .provider_hub import ProviderError
 
 
 async def async_setup_entry(
@@ -32,15 +30,15 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [GoogleGenerativeAISttEntity(config_entry, subentry)],
+            [LunaSttEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class GoogleGenerativeAISttEntity(
-    stt.SpeechToTextEntity, GoogleGenerativeAILLMBaseEntity
+class LunaSttEntity(
+    stt.SpeechToTextEntity, LunaProviderLLMBaseEntity
 ):
-    """Google Generative AI speech-to-text entity."""
+    """Luna Provider Hub speech-to-text entity."""
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the STT entity."""
@@ -251,23 +249,22 @@ class GoogleGenerativeAISttEntity(
             )
 
         try:
-            response = await self._genai_client.aio.models.generate_content(
-                model=self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_STT_MODEL),
-                contents=[
-                    prompt,
-                    Part.from_bytes(
-                        data=audio_data,
-                        mime_type=f"audio/{metadata.format.value}",
-                    ),
-                ],
+            transcript = await self._provider_hub.async_transcribe(
+                options=self.subentry.data,
+                audio_data=audio_data,
+                mime_type=f"audio/{metadata.format.value}",
+                prompt=prompt,
+                model=self.subentry.data.get(
+                    CONF_CHAT_MODEL, RECOMMENDED_STT_MODEL
+                ),
                 config=self.create_generate_content_config(),
             )
-        except (APIError, ClientError, ValueError) as err:
+        except ProviderError as err:
             LOGGER.error("Error during STT: %s", err)
         else:
-            if response.text:
+            if transcript:
                 return stt.SpeechResult(
-                    response.text,
+                    transcript,
                     stt.SpeechResultState.SUCCESS,
                 )
 

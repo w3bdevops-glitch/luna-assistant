@@ -37,6 +37,9 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .const import (
@@ -44,10 +47,16 @@ from .const import (
     AUDIO_OUTPUT_GOOGLE_NEST,
     AUDIO_OUTPUT_MEDIA_PLAYER,
     CONF_AUDIO_OUTPUT,
+    CONF_AZURE_OUTPUT_FORMAT,
+    CONF_AZURE_REGION,
+    CONF_AZURE_SPEECH_KEY,
+    CONF_AZURE_VOICE,
     CONF_CHAT_MODEL,
     CONF_LATENCY_PROFILE,
     CONF_OUTPUT_MEDIA_PLAYER,
+    CONF_OUTPUT_TTS_ENTITY,
     CONF_PERSONALITY,
+    CONF_PROVIDER,
     CONF_RESPONSE_LENGTH,
     CONF_SPEAKING_PACE,
     CONF_VOICE_MOOD,
@@ -65,6 +74,10 @@ from .const import (
     CONF_USE_GOOGLE_SEARCH_TOOL,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_AUDIO_OUTPUT,
+    DEFAULT_AZURE_OUTPUT_FORMAT,
+    DEFAULT_AZURE_REGION,
+    DEFAULT_AZURE_VOICE,
+    DEFAULT_PROVIDER,
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PERSONALITY,
     DEFAULT_RESPONSE_LENGTH,
@@ -77,6 +90,9 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
     DOMAIN,
+    AZURE_PT_BR_VOICES,
+    PROVIDER_AZURE,
+    PROVIDER_GOOGLE,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
@@ -94,6 +110,7 @@ from .const import (
     RECOMMENDED_USE_GOOGLE_SEARCH_TOOL,
     TIMEOUT_MILLIS,
 )
+from .provider_hub import ProviderCapability, ProviderError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,11 +139,11 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
     )
 
 
-class GoogleGenerativeAIConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Google Generative AI Conversation."""
+class LunaAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle the provider-aware Luna Assistant Prime config flow."""
 
     VERSION = 2
-    MINOR_VERSION = 6
+    MINOR_VERSION = 7
 
     async def async_step_api(
         self, user_input: dict[str, Any] | None = None
@@ -238,11 +255,17 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
     """Flow for managing conversation subentries."""
 
     last_rendered_recommended = False
+    last_rendered_provider = DEFAULT_PROVIDER
 
     @property
     def _genai_client(self) -> genai.Client:
         """Return the Google Generative AI client."""
-        return self._get_entry().runtime_data
+        return self._get_entry().runtime_data.providers.google_client
+
+    @property
+    def _provider_hub(self):
+        """Return the Luna Provider Hub."""
+        return self._get_entry().runtime_data.providers
 
     @property
     def _is_new(self) -> bool:
@@ -278,9 +301,20 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             self.last_rendered_recommended = cast(
                 bool, options.get(CONF_RECOMMENDED, False)
             )
+            self.last_rendered_provider = str(
+                options.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+            )
 
         else:
-            if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
+            rendered_provider_matches = (
+                self._subentry_type != "tts"
+                or user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+                == self.last_rendered_provider
+            )
+            if (
+                user_input[CONF_RECOMMENDED] == self.last_rendered_recommended
+                and rendered_provider_matches
+            ):
                 if not user_input.get(CONF_LLM_HASS_API):
                     user_input.pop(CONF_LLM_HASS_API, None)
 
@@ -291,6 +325,27 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                     and not user_input.get(CONF_OUTPUT_MEDIA_PLAYER)
                 ):
                     errors[CONF_OUTPUT_MEDIA_PLAYER] = "media_player_required"
+
+                if (
+                    self._subentry_type == "tts"
+                    and user_input.get(CONF_PROVIDER) == PROVIDER_AZURE
+                ):
+                    if not str(user_input.get(CONF_AZURE_SPEECH_KEY, "")).strip():
+                        errors[CONF_AZURE_SPEECH_KEY] = "azure_key_required"
+                    if not str(user_input.get(CONF_AZURE_REGION, "")).strip():
+                        errors[CONF_AZURE_REGION] = "azure_region_required"
+
+                    if not errors:
+                        try:
+                            await self._provider_hub.async_validate_tts_options(
+                                user_input
+                            )
+                        except ProviderError as err:
+                            errors["base"] = (
+                                "invalid_auth"
+                                if err.category in {"authentication", "authorization"}
+                                else "cannot_connect"
+                            )
 
                 if not errors:
                     if self._is_new:
@@ -307,11 +362,19 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
 
             # Re-render the options again, now with the recommended options shown/hidden
             self.last_rendered_recommended = user_input[CONF_RECOMMENDED]
+            self.last_rendered_provider = str(
+                user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+            )
 
             options = user_input
 
         schema = await google_generative_ai_config_option_schema(
-            self.hass, self._is_new, self._subentry_type, options, self._genai_client
+            self.hass,
+            self._is_new,
+            self._subentry_type,
+            options,
+            self._genai_client,
+            self._provider_hub,
         )
         return self.async_show_form(
             step_id="set_options", data_schema=vol.Schema(schema), errors=errors
@@ -327,6 +390,7 @@ async def google_generative_ai_config_option_schema(
     subentry_type: str,
     options: Mapping[str, Any],
     genai_client: genai.Client,
+    provider_hub,
 ) -> dict:
     """Return a schema for Google Generative AI completion options."""
     hass_apis: list[SelectOptionDict] = [
@@ -360,6 +424,27 @@ async def google_generative_ai_config_option_schema(
         }
     else:
         schema = {}
+
+    provider = str(options.get(CONF_PROVIDER, DEFAULT_PROVIDER))
+    capability = {
+        "conversation": ProviderCapability.CONVERSATION,
+        "stt": ProviderCapability.STT,
+        "tts": ProviderCapability.TTS,
+        "ai_task_data": ProviderCapability.AI_TASK,
+    }[subentry_type]
+    schema.update(
+        {
+            vol.Required(
+                CONF_PROVIDER, default=provider
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    mode=SelectSelectorMode.DROPDOWN,
+                    options=provider_hub.available_providers(capability),
+                    translation_key=CONF_PROVIDER,
+                )
+            )
+        }
+    )
 
     if subentry_type == "conversation":
         schema.update(
@@ -444,6 +529,12 @@ async def google_generative_ai_config_option_schema(
                 ): EntitySelector(
                     EntitySelectorConfig(domain="media_player")
                 ),
+                vol.Optional(
+                    CONF_OUTPUT_TTS_ENTITY,
+                    description={
+                        "suggested_value": options.get(CONF_OUTPUT_TTS_ENTITY)
+                    },
+                ): EntitySelector(EntitySelectorConfig(domain="tts")),
             }
         )
     elif subentry_type == "stt":
@@ -498,6 +589,47 @@ async def google_generative_ai_config_option_schema(
                 ),
             }
         )
+        if provider == PROVIDER_AZURE:
+            schema.update(
+                {
+                    vol.Required(
+                        CONF_AZURE_SPEECH_KEY,
+                        description={
+                            "suggested_value": options.get(CONF_AZURE_SPEECH_KEY, "")
+                        },
+                    ): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                    vol.Required(
+                        CONF_AZURE_REGION,
+                        default=options.get(CONF_AZURE_REGION, DEFAULT_AZURE_REGION),
+                    ): str,
+                    vol.Required(
+                        CONF_AZURE_VOICE,
+                        default=options.get(CONF_AZURE_VOICE, DEFAULT_AZURE_VOICE),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            mode=SelectSelectorMode.DROPDOWN,
+                            options=list(AZURE_PT_BR_VOICES),
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_AZURE_OUTPUT_FORMAT,
+                        default=options.get(
+                            CONF_AZURE_OUTPUT_FORMAT, DEFAULT_AZURE_OUTPUT_FORMAT
+                        ),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            mode=SelectSelectorMode.DROPDOWN,
+                            options=[
+                                "riff-16khz-16bit-mono-pcm",
+                                DEFAULT_AZURE_OUTPUT_FORMAT,
+                                "riff-48khz-16bit-mono-pcm",
+                            ],
+                        )
+                    ),
+                }
+            )
 
     schema.update(
         {
@@ -508,6 +640,9 @@ async def google_generative_ai_config_option_schema(
     )
 
     if options.get(CONF_RECOMMENDED):
+        return schema
+
+    if subentry_type == "tts" and provider == PROVIDER_AZURE:
         return schema
 
     api_models_pager = await genai_client.aio.models.list(config={"query_base": True})

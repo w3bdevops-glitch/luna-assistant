@@ -13,12 +13,37 @@ LOGGER = logging.getLogger(__package__)
 
 DOMAIN = "luna_assistant"
 SERVICE_INTERRUPT_EXTERNAL_AUDIO = "interrupt_external_audio"
-DEFAULT_TITLE = "Luna Assistant"
+DEFAULT_TITLE = "Luna Assistant Prime"
 
 DEFAULT_CONVERSATION_NAME = "Luna Conversation"
 DEFAULT_STT_NAME = "Luna STT"
 DEFAULT_TTS_NAME = "Luna TTS"
 DEFAULT_AI_TASK_NAME = "Luna AI Task"
+
+# Luna Provider Hub
+CONF_PROVIDER = "provider"
+PROVIDER_GOOGLE = "google"
+PROVIDER_AZURE = "azure"
+DEFAULT_PROVIDER = PROVIDER_GOOGLE
+CONF_AZURE_SPEECH_KEY = "azure_speech_key"
+CONF_AZURE_REGION = "azure_region"
+CONF_AZURE_VOICE = "azure_voice"
+CONF_AZURE_OUTPUT_FORMAT = "azure_output_format"
+DEFAULT_AZURE_REGION = "brazilsouth"
+DEFAULT_AZURE_VOICE = "pt-BR-FranciscaNeural"
+DEFAULT_AZURE_OUTPUT_FORMAT = "riff-24khz-16bit-mono-pcm"
+AZURE_PT_BR_VOICES = (
+    "pt-BR-FranciscaNeural",
+    "pt-BR-ThalitaMultilingualNeural",
+    "pt-BR-ThalitaNeural",
+    "pt-BR-BrendaNeural",
+    "pt-BR-GiovannaNeural",
+    "pt-BR-ManuelaNeural",
+    "pt-BR-YaraNeural",
+    "pt-BR-AntonioNeural",
+    "pt-BR-DonatoNeural",
+    "pt-BR-FabioNeural",
+)
 
 DEFAULT_STT_PROMPT = (
     "Transcreva fielmente o áudio em português do Brasil. "
@@ -95,6 +120,7 @@ CONF_SPEAKING_PACE = "speaking_pace"
 # never to the ESPHome satellite firmware.
 CONF_AUDIO_OUTPUT = "audio_output"
 CONF_OUTPUT_MEDIA_PLAYER = "output_media_player"
+CONF_OUTPUT_TTS_ENTITY = "output_tts_entity"
 
 AUDIO_OUTPUT_ATOM = "atom"
 AUDIO_OUTPUT_GOOGLE_NEST = "google_nest"
@@ -180,6 +206,7 @@ TIMEOUT_MILLIS = 10000
 FILE_POLLING_INTERVAL_SECONDS = 0.05
 
 RECOMMENDED_CONVERSATION_OPTIONS = {
+    CONF_PROVIDER: PROVIDER_GOOGLE,
     CONF_PROMPT: DEFAULT_CONVERSATION_PROMPT,
     CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
     CONF_RECOMMENDED: False,
@@ -193,6 +220,7 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
 }
 
 RECOMMENDED_STT_OPTIONS = {
+    CONF_PROVIDER: PROVIDER_GOOGLE,
     CONF_PROMPT: DEFAULT_STT_PROMPT,
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_STT_MODEL,
@@ -200,6 +228,7 @@ RECOMMENDED_STT_OPTIONS = {
 }
 
 RECOMMENDED_TTS_OPTIONS = {
+    CONF_PROVIDER: PROVIDER_GOOGLE,
     CONF_PROMPT: DEFAULT_TTS_STYLE_PROMPT,
     CONF_RECOMMENDED: False,
     CONF_CHAT_MODEL: RECOMMENDED_TTS_MODEL,
@@ -209,5 +238,6 @@ RECOMMENDED_TTS_OPTIONS = {
 }
 
 RECOMMENDED_AI_TASK_OPTIONS = {
+    CONF_PROVIDER: PROVIDER_GOOGLE,
     CONF_RECOMMENDED: True,
 }

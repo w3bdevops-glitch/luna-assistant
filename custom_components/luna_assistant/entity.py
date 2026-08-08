@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 import datetime
 import mimetypes
 from pathlib import Path
+import time
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from google.genai import Client
@@ -25,7 +26,6 @@ from google.genai.types import (
     FunctionDeclaration,
     GenerateContentConfig,
     GenerateContentResponse,
-    GoogleSearch,
     HarmCategory,
     Part,
     PartUnionDict,
@@ -48,6 +48,7 @@ from homeassistant.helpers.entity import Entity
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_AZURE_VOICE,
     CONF_DANGEROUS_BLOCK_THRESHOLD,
     CONF_HARASSMENT_BLOCK_THRESHOLD,
     CONF_HATE_BLOCK_THRESHOLD,
@@ -60,7 +61,9 @@ from .const import (
     CONF_TOP_K,
     CONF_TOP_P,
     CONF_USE_GOOGLE_SEARCH_TOOL,
+    CONF_PROVIDER,
     DEFAULT_LATENCY_PROFILE,
+    DEFAULT_PROVIDER,
     DOMAIN,
     FILE_POLLING_INTERVAL_SECONDS,
     LATENCY_PROFILE_MAX_TOKENS,
@@ -74,11 +77,12 @@ from .const import (
     RECOMMENDED_THINKING_LEVEL,
     RECOMMENDED_TOP_K,
     RECOMMENDED_TOP_P,
+    PROVIDER_AZURE,
     TIMEOUT_MILLIS,
 )
 
 if TYPE_CHECKING:
-    from . import GoogleGenerativeAIConfigEntry
+    from . import LunaAssistantConfigEntry
 
 # Max number of back and forth with the LLM to generate a response
 MAX_TOOL_ITERATIONS = 10
@@ -554,12 +558,12 @@ async def _transform_stream(
         raise HomeAssistantError(error) from err
 
 
-class GoogleGenerativeAILLMBaseEntity(Entity):
-    """Google Generative AI base entity."""
+class LunaProviderLLMBaseEntity(Entity):
+    """Provider-neutral Luna entity with a Gemini adapter implementation."""
 
     def __init__(
         self,
-        entry: GoogleGenerativeAIConfigEntry,
+        entry: LunaAssistantConfigEntry,
         subentry: ConfigSubentry,
         default_model: str = RECOMMENDED_CHAT_MODEL,
     ) -> None:
@@ -568,17 +572,66 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
         self.subentry = subentry
         self.default_model = default_model
         self._attr_name = subentry.title
-        self._genai_client = entry.runtime_data
+        self._core = entry.runtime_data
+        self._provider_hub = self._core.providers
+        self._genai_client = self._provider_hub.google_client
         self._attr_unique_id = subentry.subentry_id
+        provider = subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="Google",
-            model=subentry.data.get(CONF_CHAT_MODEL, default_model).split("/")[-1],
+            manufacturer="Microsoft" if provider == PROVIDER_AZURE else "Google",
+            model=(
+                subentry.data.get(CONF_AZURE_VOICE, "Azure Speech TTS")
+                if provider == PROVIDER_AZURE
+                else subentry.data.get(CONF_CHAT_MODEL, default_model).split("/")[-1]
+            ),
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
     async def _async_handle_chat_log(
+        self,
+        chat_log: conversation.ChatLog,
+        structure: vol.Schema | None = None,
+        default_max_tokens: int | None = None,
+        max_iterations: int = MAX_TOOL_ITERATIONS,
+    ) -> None:
+        """Route chat/data generation through the pluggable Provider Hub."""
+        started = time.monotonic()
+        provider = str(self.subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER))
+        service = (
+            "ai_task"
+            if self.subentry.subentry_type == "ai_task_data"
+            else "conversation"
+        )
+        try:
+            await self._provider_hub.async_handle_chat_log(
+                options=self.subentry.data,
+                entity=self,
+                chat_log=chat_log,
+                structure=structure,
+                default_max_tokens=default_max_tokens,
+                max_iterations=max_iterations,
+            )
+        except Exception:  # noqa: BLE001
+            self._core.metrics.record(
+                service=service,
+                provider=provider,
+                operation="generate",
+                started=started,
+                success=False,
+                error_category="provider_error",
+            )
+            raise
+        self._core.metrics.record(
+            service=service,
+            provider=provider,
+            operation="generate",
+            started=started,
+            success=True,
+        )
+
+    async def _async_handle_google_chat_log(
         self,
         chat_log: conversation.ChatLog,
         structure: vol.Schema | None = None,
@@ -602,9 +655,10 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
             CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE
         )
 
-        if options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True:
-            tools = tools or []
-            tools.append(Tool(google_search=GoogleSearch()))
+        tools = self._core.tools.build_google_tools(
+            tools,
+            enable_web_search=options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True,
+        )
 
         configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
         model_name = (

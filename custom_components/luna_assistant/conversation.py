@@ -34,6 +34,7 @@ from .const import (
     CONF_AUDIO_OUTPUT,
     CONF_LATENCY_PROFILE,
     CONF_OUTPUT_MEDIA_PLAYER,
+    CONF_OUTPUT_TTS_ENTITY,
     CONF_PERSONALITY,
     CONF_RESPONSE_LENGTH,
     DEFAULT_AUDIO_OUTPUT,
@@ -48,7 +49,7 @@ from .const import (
     RELIABILITY_PROMPT,
     RESPONSE_LENGTH_PROMPTS,
 )
-from .entity import GoogleGenerativeAILLMBaseEntity
+from .entity import LunaProviderLLMBaseEntity
 
 
 async def async_setup_entry(
@@ -62,17 +63,17 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [GoogleGenerativeAIConversationEntity(config_entry, subentry)],
+            [LunaConversationEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class GoogleGenerativeAIConversationEntity(
+class LunaConversationEntity(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
-    GoogleGenerativeAILLMBaseEntity,
+    LunaProviderLLMBaseEntity,
 ):
-    """Google Generative AI conversation agent."""
+    """Luna Provider Hub conversation agent."""
 
     _attr_supports_streaming = True
 
@@ -161,8 +162,8 @@ class GoogleGenerativeAIConversationEntity(
         """Route a voice reply to the configured external media player.
 
         Atom remains the default Assist Pipeline destination. For an external
-        destination, Luna prefers the configured Microsoft legacy TTS service
-        when it is available, and falls back to Luna TTS via ``tts.speak``.
+        destination, Luna uses the selected Prime Provider Hub TTS entity via
+        ``tts.speak`` and retains the legacy Microsoft service only as fallback.
         The selected media player is always addressed by its canonical
         ``entity_id``; the friendly name is never sent to a service call.
 
@@ -209,14 +210,14 @@ class GoogleGenerativeAIConversationEntity(
 
         started = time.monotonic()
         provider: str | None = None
-        if await self._async_route_with_microsoft_tts(
+        if await self._async_route_with_luna_tts(
             target_entity_id, speech, user_input
         ):
-            provider = "tts.microsoft_say"
-        elif await self._async_route_with_luna_tts(
+            provider = "tts.speak / Luna Provider Hub"
+        elif await self._async_route_with_microsoft_tts(
             target_entity_id, speech, user_input
         ):
-            provider = "tts.speak / Luna TTS"
+            provider = "tts.microsoft_say (legacy fallback)"
 
         if provider is None:
             LOGGER.warning(
@@ -355,6 +356,9 @@ class GoogleGenerativeAIConversationEntity(
 
     def _async_find_luna_tts_entity_id(self) -> str | None:
         """Return the first enabled Luna TTS entity for this config entry."""
+        configured = self.subentry.data.get(CONF_OUTPUT_TTS_ENTITY)
+        if isinstance(configured, str) and configured:
+            return configured
         entity_registry = er.async_get(self.hass)
         for subentry in self.entry.subentries.values():
             if subentry.subentry_type != "tts":

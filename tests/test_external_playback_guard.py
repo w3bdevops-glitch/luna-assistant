@@ -13,7 +13,7 @@ SOURCE_PATH = (
 )
 SOURCE = SOURCE_PATH.read_text(encoding="utf-8")
 
-service_index = SOURCE.index("if await self._async_route_with_microsoft_tts")
+service_index = SOURCE.index("if await self._async_route_with_luna_tts")
 clear_index = SOURCE.index("result.response.speech.clear()", service_index)
 log_index = SOURCE.index('"enabled; total %.0f ms"', clear_index)
 

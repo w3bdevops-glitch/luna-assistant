@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-prime
+
+- Criado Luna Core, sem assumir responsabilidades do Assist/Satellite.
+- Criado Provider Hub plugável com contrato, registro e capacidades.
+- Google Gemini disponível para AI Task, Conversation, STT e TTS.
+- Azure Speech adicionado como provedor TTS nativo com SSML e WAV PCM.
+- Criado Tools Hub com Google Search Grounding e ferramentas HA simultâneas.
+- Adicionadas métricas internas e normalização de erros.
+- Adicionada seleção explícita da entidade Luna TTS para áudio externo.
+- Config entry minor version 7 com migração não destrutiva.
+- Mantidas todas as correções da série 0.3.x.
+
 ## 0.3.10-stable
 
 - Adicionada política global e obrigatória de confiabilidade à Luna Conversation.

@@ -1,75 +1,89 @@
-# Luna Assistant v0.3.10-stable
+# Luna Assistant Prime v1.0.0
 
-## Respostas mais confiáveis
+Integração personalizada para o Home Assistant 2026.7 que fornece serviços de
+IA ao Assist Pipeline sem substituir sua orquestração nativa.
 
-A Luna Conversation aplica uma política global de confiabilidade: não deve inventar
-informações, deve pesquisar fatos atuais ou incertos quando a pesquisa estiver
-disponível e deve admitir claramente quando não conseguir confirmar uma resposta.
+## Arquitetura preservada
 
-## Conversa contínua segura
+- **Luna Satellite / ESPHome**: hardware, wake word, botões, I²S, estados e
+  experiência de voz no Atom.
+- **Home Assistant Assist**: orquestra `STT → Conversation → TTS`.
+- **Luna Assistant Prime**: entidades de IA, personalidade, ferramentas,
+  provedores e roteamento de áudio externo.
 
-Depois de enviar o TTS ao Google Nest, a integração acompanha o estado real do
-player. Quando a reprodução muda de `playing`/`buffering` para `idle`, `off` ou
-`paused`, ela avisa o Luna Satellite v0.2.3-alpha. O Satellite só então abre o
-follow-up automático, caso **Luna Continuous Conversation** esteja ligado.
+Luna Core não controla microfone, wake word, sessão do Satellite nem barramento
+I²S.
 
-## Interrupção por “Ei, Luna”
+## Entregue na Prime v1
 
-A integração registra a ação `luna_assistant.interrupt_external_audio`. O
-firmware Luna Satellite v0.1.5 chama essa ação assim que o modelo local detecta
-a wake word. A ação localiza automaticamente o Google Nest ou outro
-`media_player` selecionado nas opções da conversa e interrompe a reprodução.
+### Luna Core
 
-No dispositivo ESPHome, habilite **Permitir que o dispositivo execute ações do
-Home Assistant** na configuração da integração ESPHome. Sem essa permissão, o
-ATOM detectará a wake word, mas não poderá solicitar a interrupção do Nest.
+Raiz de execução interna que inicializa e conecta o Provider Hub, Tools Hub e
+métricas operacionais. Credenciais nunca são incluídas nos diagnósticos.
 
-Correção do microfone durante respostas reproduzidas em Google Nest ou outro
-`media_player` externo.
+### Luna Provider Hub
 
-## O que foi corrigido
+Registro plugável por capacidade. A entidade do Home Assistant solicita uma
+capacidade e o Hub seleciona o adaptador configurado.
 
-Na v0.3.5, o serviço TTS externo era chamado corretamente, mas o Assist podia
-encerrar o turno antes de o Google Nest terminar de falar. O Luna Satellite
-entrava imediatamente no modo de continuação e o microfone acabava ouvindo a
-própria resposta da Luna.
+| Provedor | AI Task | Conversation | STT | TTS |
+|---|---:|---:|---:|---:|
+| Google Gemini | Sim | Sim | Sim | Sim |
+| Microsoft Azure Speech | Não | Não | Não | Sim |
 
-A v0.3.8 libera o Assist Pipeline assim que o Google Nest começa a resposta.
-O Luna Satellite volta então ao `micro_wake_word`, não ao reconhecimento livre
-de fala. Ruídos comuns e a própria voz do Nest não iniciam STT. Somente a wake
-word local “Ei, Luna” interrompe o player e abre um novo turno.
+O Google mantém seleção de modelos e fornece Gemini 3.1 Flash-Lite,
+transcrição multimodal e Gemini 3.1 Flash TTS. O Azure TTS usa a API regional
+Speech, SSML e áudio WAV PCM validado.
 
-## Roteamento por entity_id
+### Luna Tools Hub
 
-O destino continua sendo sempre o `entity_id` canônico selecionado no Home
-Assistant, por exemplo:
+Primeiro adaptador de ferramenta: Google Search Grounding. A pesquisa pode ser
+combinada com as funções de controle do Home Assistant na mesma conversa e
+continua disponível no perfil Rápido.
 
-```text
-media_player.google_nest
-```
+### Métricas internas
 
-O nome amigável mostrado na interface, como `Google Nest`, não é enviado ao
-serviço TTS.
+Registra chamadas, sucesso, erro normalizado, unidades de entrada/saída e
+latência recente (última, média, p50 e p95). O estado aparece nos diagnósticos
+da integração.
 
-## Ordem de roteamento externo
+## Instalação/atualização
 
-1. Microsoft TTS: `tts.microsoft_say`.
-2. Luna TTS: `tts.speak`, caso o serviço Microsoft não exista ou falhe.
-3. Atom: a fala original do Assist Pipeline é preservada se nenhuma rota
-   externa for aceita.
-
-## Instalação
-
-1. Substitua a pasta `custom_components/luna_assistant` pela desta versão.
+1. Copie `custom_components/luna_assistant` para `/config/custom_components/`.
 2. Reinicie completamente o Home Assistant.
-3. Mantenha o Google Nest selecionado em **Luna Conversation → Configurar**.
-4. Faça uma pergunta e produza algum som perto do Atom enquanto o Nest fala.
-5. O follow-up deve abrir somente depois que a fala externa terminar.
+3. A entrada existente é migrada automaticamente para a Prime v1; os serviços
+   existentes permanecem no Google.
+4. Em **Configurações → Dispositivos e serviços → Luna Assistant Prime**, abra
+   ou adicione as entidades AI Task, Conversation, STT e TTS.
 
-## Compatibilidade
+## Configurar Azure TTS
 
-- Home Assistant alvo: 2026.7.4.
-- Microsoft Text-to-Speech por `tts.microsoft_say`.
-- Luna TTS por `tts.speak` como fallback.
-- Firmware recomendado: Luna Satellite v0.2.3-alpha.
-- Não há migração de configuração; minor version permanece 6.
+1. Reconfigure uma entidade Luna TTS ou adicione outra.
+2. Em **Provedor**, selecione **Microsoft Azure Speech**.
+3. Envie o formulário uma vez para abrir os campos específicos do Azure.
+4. Informe a chave, a região (por exemplo `brazilsouth`) e a voz.
+5. Para Google Nest/outro media player, selecione essa entidade no campo
+   **Provedor Luna TTS** da Luna Conversation.
+
+Voz padrão: `pt-BR-FranciscaNeural`. O formato padrão é
+`riff-24khz-16bit-mono-pcm`.
+
+## Compatibilidade com Luna Satellite
+
+- Serviço `luna_assistant.interrupt_external_audio` preservado.
+- Saída Atom continua pelo Assist Pipeline.
+- Saída externa continua usando `entity_id` canônico.
+- O Satellite é notificado somente quando o player externo termina.
+- Barge-in e conversa contínua não foram movidos para o Core.
+
+## Adicionar outro provedor
+
+Consulte [PROVIDER_DEVELOPMENT.md](PROVIDER_DEVELOPMENT.md). Um novo provedor,
+como OpenAI, implementa o contrato `LunaProviderAdapter` e é registrado no Hub.
+As entidades `ai_task`, `conversation`, `stt` e `tts` permanecem inalteradas.
+
+## Validação
+
+O pacote contém testes estáticos e unitários sem credenciais. Testes físicos no
+Home Assistant ainda são obrigatórios porque chamadas reais do Google/Azure e
+reprodução no Atom/Nest dependem da instalação do usuário.

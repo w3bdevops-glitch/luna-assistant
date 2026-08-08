@@ -44,6 +44,7 @@ from .const import (
     SERVICE_INTERRUPT_EXTERNAL_AUDIO,
     TIMEOUT_MILLIS,
 )
+from .core import LunaCore
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = (
@@ -53,11 +54,11 @@ PLATFORMS = (
     Platform.TTS,
 )
 
-type GoogleGenerativeAIConfigEntry = ConfigEntry[Client]
+type LunaAssistantConfigEntry = ConfigEntry[LunaCore]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up Google Generative AI Conversation."""
+    """Set up Luna Assistant Prime."""
 
     await async_migrate_integration(hass)
 
@@ -104,9 +105,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: GoogleGenerativeAIConfigEntry
+    hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> bool:
-    """Set up Google Generative AI Conversation from a config entry."""
+    """Set up Luna Assistant Prime from a config entry."""
 
     try:
         client = await hass.async_add_executor_job(
@@ -123,7 +124,7 @@ async def async_setup_entry(
             raise ConfigEntryNotReady(err) from err
         raise ConfigEntryError(err) from err
     else:
-        entry.runtime_data = client
+        entry.runtime_data = LunaCore.create(hass, client)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -133,9 +134,9 @@ async def async_setup_entry(
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: GoogleGenerativeAIConfigEntry
+    hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> bool:
-    """Unload GoogleGenerativeAI."""
+    """Unload Luna Assistant Prime."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
@@ -143,7 +144,7 @@ async def async_unload_entry(
 
 
 async def async_update_options(
-    hass: HomeAssistant, entry: GoogleGenerativeAIConfigEntry
+    hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> None:
     """Update options."""
     await hass.config_entries.async_reload(entry.entry_id)
@@ -258,7 +259,7 @@ async def async_migrate_integration(hass: HomeAssistant) -> None:
 
 
 async def async_migrate_entry(
-    hass: HomeAssistant, entry: GoogleGenerativeAIConfigEntry
+    hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> bool:
     """Migrate entry."""
     LOGGER.debug("Migrating from version %s:%s", entry.version, entry.minor_version)
@@ -324,6 +325,15 @@ async def async_migrate_entry(
         # missing audio-output fields safely default to Atom.
         hass.config_entries.async_update_entry(entry, minor_version=6)
 
+    if entry.version == 2 and entry.minor_version < 7:
+        # Prime v1 introduces provider-aware subentries. Existing subentries
+        # remain Google-backed through the safe default and need no data rewrite.
+        hass.config_entries.async_update_entry(
+            entry,
+            title=DEFAULT_TITLE,
+            minor_version=7,
+        )
+
     LOGGER.debug(
         "Migration to version %s:%s successful", entry.version, entry.minor_version
     )
@@ -332,7 +342,7 @@ async def async_migrate_entry(
 
 
 def _add_ai_task_and_stt_subentries(
-    hass: HomeAssistant, entry: GoogleGenerativeAIConfigEntry
+    hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> None:
     """Add AI Task and STT subentries to the config entry."""
     hass.config_entries.async_add_subentry(

@@ -1,6 +1,6 @@
 {
   "domain": "luna_assistant",
-  "name": "Luna Assistant",
+  "name": "Luna Assistant Prime",
   "after_dependencies": [
     "assist_pipeline",
     "intent"
@@ -15,9 +15,9 @@
   "documentation": "https://github.com/w3bdevops-glitch/luna-assistant",
   "issue_tracker": "https://github.com/w3bdevops-glitch/luna-assistant/issues",
   "integration_type": "service",
-  "iot_class": "cloud_polling",
+  "iot_class": "cloud_push",
   "requirements": [
     "google-genai==1.59.0"
   ],
-  "version": "0.3.10"
+  "version": "1.0.0"
 }

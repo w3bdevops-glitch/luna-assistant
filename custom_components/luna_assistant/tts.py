@@ -2,14 +2,11 @@
 # Derived from Home Assistant Core's Google Gemini integration,
 # licensed under the Apache License 2.0.
 
-"""Text to speech support for Google Generative AI."""
+"""Provider-aware text-to-speech support for Luna Assistant Prime."""
 
 from collections.abc import Mapping
-import time
 from typing import Any, override
 
-from google.genai import types
-from google.genai.errors import APIError, ClientError
 from propcache.api import cached_property
 
 from homeassistant.components.tts import (
@@ -26,6 +23,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
     CONF_CHAT_MODEL,
+    CONF_PROVIDER,
     CONF_SPEAKING_PACE,
     CONF_VOICE_MOOD,
     CONF_TEMPERATURE,
@@ -33,13 +31,16 @@ from .const import (
     DEFAULT_SPEAKING_PACE,
     DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_VOICE_MOOD,
+    DEFAULT_PROVIDER,
+    PROVIDER_AZURE,
+    AZURE_PT_BR_VOICES,
     SPEAKING_PACE_PROMPTS,
     VOICE_MOOD_PROMPTS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TTS_MODEL,
 )
-from .entity import GoogleGenerativeAILLMBaseEntity
-from .helpers import convert_to_wav, validate_wav
+from .entity import LunaProviderLLMBaseEntity
+from .provider_hub import ProviderError
 
 
 async def async_setup_entry(
@@ -53,15 +54,15 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [GoogleGenerativeAITextToSpeechEntity(config_entry, subentry)],
+            [LunaTextToSpeechEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class GoogleGenerativeAITextToSpeechEntity(
-    TextToSpeechEntity, GoogleGenerativeAILLMBaseEntity
+class LunaTextToSpeechEntity(
+    TextToSpeechEntity, LunaProviderLLMBaseEntity
 ):
-    """Google Generative AI text-to-speech entity."""
+    """Luna Provider Hub text-to-speech entity."""
 
     _attr_supported_options = [ATTR_VOICE]
     # See https://ai.google.dev/gemini-api/docs/speech-generation#languages
@@ -154,7 +155,7 @@ class GoogleGenerativeAITextToSpeechEntity(
     # The Gemini TTS models detect the input language automatically.
     _attr_default_language = "en-US"
     # See https://ai.google.dev/gemini-api/docs/speech-generation#voices
-    _supported_voices = [
+    _google_voices = [
         Voice(voice.split(" ", 1)[0].lower(), voice)
         for voice in (
             "Zephyr (Bright)",
@@ -193,6 +194,10 @@ class GoogleGenerativeAITextToSpeechEntity(
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the TTS entity."""
         super().__init__(config_entry, subentry, RECOMMENDED_TTS_MODEL)
+        if subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER) == PROVIDER_AZURE:
+            self._supported_voices = [Voice(voice, voice) for voice in AZURE_PT_BR_VOICES]
+        else:
+            self._supported_voices = self._google_voices
 
     @callback
     @override
@@ -212,7 +217,7 @@ class GoogleGenerativeAITextToSpeechEntity(
     async def async_get_tts_audio(
         self, message: str, language: str, options: dict[str, Any]
     ) -> TtsAudioType:
-        """Generate one validated WAV response with one Gemini API call."""
+        """Generate one provider-neutral validated WAV response."""
         if not message.strip():
             raise HomeAssistantError("Luna TTS received an empty message")
 
@@ -227,22 +232,7 @@ class GoogleGenerativeAITextToSpeechEntity(
             )
             model = RECOMMENDED_TTS_MODEL
 
-        voice_name = options.get(
-            ATTR_VOICE, self._supported_voices[0].voice_id
-        )
-        config = types.GenerateContentConfig(
-            temperature=self.subentry.data.get(
-                CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE
-            ),
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice_name
-                    )
-                )
-            ),
-        )
+        voice_name = options.get(ATTR_VOICE, self._supported_voices[0].voice_id)
 
         style_prompt = self.subentry.data.get(
             CONF_PROMPT, DEFAULT_TTS_STYLE_PROMPT
@@ -263,91 +253,32 @@ class GoogleGenerativeAITextToSpeechEntity(
             )
             if isinstance(part, str) and part.strip()
         )
-        styled_message = (
-            f"{full_style}\n\n"
-            "Leia somente o texto entre as marcas TRANSCRIÇÃO. "
-            "Não leia as instruções nem as marcas.\n"
-            "=== TRANSCRIÇÃO ===\n"
-            f"{message}\n"
-            "=== FIM DA TRANSCRIÇÃO ==="
-        )
-
-        started = time.monotonic()
         try:
-            response = await self._genai_client.aio.models.generate_content(
+            result = await self._provider_hub.async_synthesize_tts(
+                options=self.subentry.data,
+                message=message,
+                language=language,
+                voice=voice_name,
                 model=model,
-                contents=styled_message,
-                config=config,
+                temperature=self.subentry.data.get(
+                    CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE
+                ),
+                style_prompt=full_style,
+                speaking_pace=speaking_pace,
             )
-            api_finished = time.monotonic()
-
-            if (
-                not response.candidates
-                or not response.candidates[0].content
-                or not response.candidates[0].content.parts
-            ):
-                raise HomeAssistantError(
-                    "Gemini TTS returned no candidate audio content"
-                )
-
-            chunks: list[bytes] = []
-            mime_type: str | None = None
-            for part in response.candidates[0].content.parts:
-                inline_data = part.inline_data
-                if inline_data is None:
-                    continue
-                part_data = inline_data.data
-                part_mime = inline_data.mime_type
-                if isinstance(part_data, (bytearray, memoryview)):
-                    part_data = bytes(part_data)
-                if (
-                    not isinstance(part_data, bytes)
-                    or not part_data
-                    or not isinstance(part_mime, str)
-                    or not part_mime.lower().startswith("audio/")
-                ):
-                    continue
-                if mime_type is None:
-                    mime_type = part_mime
-                elif part_mime.lower().replace(" ", "") != mime_type.lower().replace(
-                    " ", ""
-                ):
-                    raise HomeAssistantError(
-                        "Gemini returned incompatible audio parts"
-                    )
-                chunks.append(part_data)
-
-            if not chunks or mime_type is None:
-                raise HomeAssistantError(
-                    "Gemini TTS returned no usable inline audio"
-                )
-
-            pcm_audio = b"".join(chunks)
-            wav_audio = convert_to_wav(pcm_audio, mime_type)
-            converted = time.monotonic()
-            wav_info = validate_wav(wav_audio)
-
-        except (APIError, ClientError, ValueError, TypeError, HomeAssistantError) as exc:
+        except ProviderError as exc:
             LOGGER.error("Luna TTS failed: %s", exc, exc_info=True)
             raise HomeAssistantError(str(exc)) from exc
 
         LOGGER.info(
-            "Luna TTS valid: model=%s voice=%s mime=%s "
-            "api=%.0fms wav=%.0fms total=%.0fms "
-            "source_bytes=%d wav_bytes=%d rate=%dHz channels=%d bits=%d "
-            "duration=%.2fs",
+            "Luna TTS valid: provider=%s model=%s voice=%s "
+            "wav_bytes=%d rate=%dHz channels=%d bits=%d",
+            result.provider,
             model,
-            voice_name,
-            mime_type,
-            (api_finished - started) * 1000,
-            (converted - api_finished) * 1000,
-            (converted - started) * 1000,
-            len(pcm_audio),
-            len(wav_audio),
-            wav_info.sample_rate,
-            wav_info.channels,
-            wav_info.bits_per_sample,
-            wav_info.duration_seconds,
+            result.voice,
+            len(result.data),
+            result.sample_rate,
+            result.channels,
+            result.bits_per_sample,
         )
-        return "wav", wav_audio
-
+        return result.format, result.data

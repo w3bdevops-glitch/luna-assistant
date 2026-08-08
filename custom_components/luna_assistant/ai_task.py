@@ -2,7 +2,7 @@
 # Derived from Home Assistant Core's Google Gemini integration,
 # licensed under the Apache License 2.0.
 
-"""AI Task integration for Google Generative AI Conversation."""
+"""Provider-aware AI Task integration for Luna Assistant Prime."""
 
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, override
@@ -26,14 +26,14 @@ from .const import (
 )
 from .entity import (
     ERROR_GETTING_RESPONSE,
-    GoogleGenerativeAILLMBaseEntity,
+    LunaProviderLLMBaseEntity,
     async_prepare_files_for_prompt,
 )
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigSubentry
 
-    from . import GoogleGenerativeAIConfigEntry
+    from . import LunaAssistantConfigEntry
 
 
 async def async_setup_entry(
@@ -47,20 +47,20 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [GoogleGenerativeAITaskEntity(config_entry, subentry)],
+            [LunaAITaskEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class GoogleGenerativeAITaskEntity(
+class LunaAITaskEntity(
     ai_task.AITaskEntity,
-    GoogleGenerativeAILLMBaseEntity,
+    LunaProviderLLMBaseEntity,
 ):
-    """Google Generative AI AI Task entity."""
+    """Luna Provider Hub AI Task entity."""
 
     def __init__(
         self,
-        entry: GoogleGenerativeAIConfigEntry,
+        entry: LunaAssistantConfigEntry,
         subentry: ConfigSubentry,
     ) -> None:
         """Initialize the entity."""
