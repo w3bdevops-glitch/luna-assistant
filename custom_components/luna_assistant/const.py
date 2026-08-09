@@ -32,6 +32,8 @@ DEFAULT_PROVIDER = PROVIDER_GOOGLE
 # provider_instances key remains readable only for non-destructive migration.
 CONF_PROVIDERS = "providers"
 CONF_ROUTES = "service_routes"
+CONF_SERVICE_ROUTE = "service_route"
+CONF_IMAGE_ROUTE = "image_route"
 CONF_SEARCH_ENABLED = "search_enabled"
 CONF_PROVIDER_INSTANCES = "provider_instances"
 CONF_PROVIDER_INSTANCE_ID = "provider_instance_id"
@@ -147,10 +149,45 @@ DEFAULT_TTS_STYLE_PROMPT = (
 
 CONF_RECOMMENDED = "recommended"
 CONF_CHAT_MODEL = "chat_model"
+CONF_IMAGE_MODEL = "image_model"
+CONF_GOOGLE_TTS_VOICE = "google_tts_voice"
 RECOMMENDED_CHAT_MODEL = "models/gemini-3.1-flash-lite"
 RECOMMENDED_STT_MODEL = RECOMMENDED_CHAT_MODEL
 RECOMMENDED_TTS_MODEL = "models/gemini-3.1-flash-tts-preview"
 RECOMMENDED_IMAGE_MODEL = "models/gemini-2.5-flash-image"
+DEFAULT_GOOGLE_TTS_VOICE = "zephyr"
+GOOGLE_TTS_VOICES = (
+    "zephyr",
+    "puck",
+    "charon",
+    "kore",
+    "fenrir",
+    "leda",
+    "orus",
+    "aoede",
+    "callirrhoe",
+    "autonoe",
+    "enceladus",
+    "iapetus",
+    "umbriel",
+    "algieba",
+    "despina",
+    "erinome",
+    "algenib",
+    "rasalgethi",
+    "laomedeia",
+    "achernar",
+    "alnilam",
+    "schedar",
+    "gacrux",
+    "pulcherrima",
+    "achird",
+    "zubenelgenubi",
+    "vindemiatrix",
+    "sadachbia",
+    "sadaltager",
+    "sulafat",
+)
 CONF_TEMPERATURE = "temperature"
 RECOMMENDED_TEMPERATURE = 1.0
 CONF_TOP_P = "top_p"

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0-prime
+
+- Adicionada a rota de providers diretamente na configuração de Conversation,
+  AI Task, STT e TTS, sem duplicar o armazenamento central.
+- Substituída a digitação manual de IDs por selects múltiplos pesquisáveis; os
+  itens selecionados preservam a ordem de prioridade da esquerda para a direita.
+- Mantido o painel geral de rotas como visão consolidada e editável da mesma
+  configuração usada nos serviços.
+- A tela de cada serviço agora mostra apenas parâmetros compatíveis com os
+  providers presentes em sua rota.
+- Adicionadas rota e modelo de Image separados na configuração de AI Task.
+- Adicionada voz Google TTS específica para uso principal ou fallback, sem
+  reutilizar incorretamente uma voz Azure no Gemini.
+- O runtime de TTS, Image e os dados de dispositivo agora seguem a rota central,
+  sem depender do antigo campo fixo `provider` da entidade.
+- Migração não destrutiva para config entry minor version 11, preservando rotas,
+  entidades, prompts, modelos, credenciais, limites e consumo existentes.
+- Atualizados diagnósticos de pacote, traduções e testes de regressão.
+
 ## 1.2.0-prime
 
 - Substituídas instâncias duplicadas por um catálogo fixo de tecnologias:

@@ -23,11 +23,9 @@ from propcache.api import cached_property
 from .const import (
     AZURE_PT_BR_VOICES,
     CONF_CHAT_MODEL,
-    CONF_PROVIDER,
     CONF_SPEAKING_PACE,
     CONF_TEMPERATURE,
     CONF_VOICE_MOOD,
-    DEFAULT_PROVIDER,
     DEFAULT_SPEAKING_PACE,
     DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_VOICE_MOOD,
@@ -39,7 +37,7 @@ from .const import (
     VOICE_MOOD_PROMPTS,
 )
 from .entity import LunaProviderLLMBaseEntity
-from .provider_hub import ProviderError
+from .provider_hub import ProviderCapability, ProviderError
 
 
 async def async_setup_entry(
@@ -191,7 +189,8 @@ class LunaTextToSpeechEntity(TextToSpeechEntity, LunaProviderLLMBaseEntity):
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the TTS entity."""
         super().__init__(config_entry, subentry, RECOMMENDED_TTS_MODEL)
-        if subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER) == PROVIDER_AZURE:
+        route = self._provider_hub.credentials.route_for(ProviderCapability.TTS)
+        if route and route[0] == PROVIDER_AZURE:
             self._supported_voices = [
                 Voice(voice, voice) for voice in AZURE_PT_BR_VOICES
             ]

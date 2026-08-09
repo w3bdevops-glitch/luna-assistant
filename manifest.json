@@ -1,7 +1,7 @@
 {
   "domain": "luna_assistant",
   "name": "Luna Assistant Prime",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "config_flow": true,
   "documentation": "https://github.com/w3bdevops-glitch/luna-assistant",
   "issue_tracker": "https://github.com/w3bdevops-glitch/luna-assistant/issues",

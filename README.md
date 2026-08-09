@@ -1,4 +1,4 @@
-# Luna Assistant Prime v1.2.0
+# Luna Assistant Prime v1.3.0
 
 Integração personalizada para o Home Assistant 2026.7 que fornece IA ao
 Assist Pipeline sem substituir sua orquestração nativa.
@@ -20,6 +20,10 @@ Assist Pipeline sem substituir sua orquestração nativa.
 - Cinco frases de feedback para mascarar a latência da pesquisa, com geração
   antecipada pela rota TTS, cache, reprodução aleatória e pré-visualização.
 - Migração automática das configurações e credenciais das versões anteriores.
+- Rotas visíveis e editáveis dentro de Conversation, AI Task, STT e TTS usando
+  selects pesquisáveis que preservam a ordem de prioridade.
+- Campos de configuração exibidos dinamicamente conforme os providers da rota.
+- Rota e modelo de Image separados na configuração de AI Task.
 
 ## Arquitetura preservada
 
@@ -52,6 +56,15 @@ Configurar**. O menu permite:
 3. Ordenar providers em cada rota de capacidade.
 4. Editar, gerar e pré-visualizar as frases de latência.
 5. Salvar toda a configuração central.
+
+As rotas também aparecem na configuração de cada serviço. Digite no select para
+filtrar os providers e selecione-os na ordem de execução. Os itens selecionados
+representam a prioridade da esquerda para a direita. Alterar a rota no serviço ou
+no painel geral atualiza o mesmo catálogo central; não há configuração duplicada.
+
+Depois de selecionar a rota, a tela mostra somente os campos compatíveis. Por
+exemplo, a rota TTS `Azure → Google AI` exibe voz/formato Azure e modelo/voz
+Google; uma rota apenas Azure não exibe parâmetros Gemini.
 
 ### Pesquisa na internet
 
@@ -95,10 +108,10 @@ pré-visualizar cada frase.
 2. Reinicie completamente o Home Assistant.
 3. Abra a configuração da Luna, cadastre a chave Tavily se quiser pesquisa e
    revise as rotas.
-4. Salve. As entradas antigas são migradas automaticamente para o esquema 2:10.
+4. Salve. As entradas antigas são migradas automaticamente para o esquema 2:11.
 
 Para HACS, publique o conteúdo deste pacote no repositório, crie a tag
-`v1.2.0` e anexe o ZIP da release.
+`v1.3.0` e anexe o ZIP da release.
 
 ## Compatibilidade com Luna Satellite
 

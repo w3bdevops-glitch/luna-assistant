@@ -1,51 +1,57 @@
-# Luna Assistant Prime v1.2.0
+# Luna Assistant Prime v1.3.0
 
-Esta versão reorganiza o Provider Hub, adiciona Tavily Search e entrega feedback
-de voz durante pesquisas demoradas.
+Esta versão torna a configuração dos serviços coerente com o Provider Hub:
+cada serviço mostra sua rota ordenada e somente os parâmetros dos providers
+selecionados, enquanto o painel geral continua sendo a visão consolidada.
 
 ## Principais mudanças
 
-- Um provider por tecnologia, com listas independentes e ilimitadas de chaves.
-- Rotas ordenadas por capacidade e failover entre providers compatíveis.
-- Seleção pela maior estimativa de saldo ou round-robin.
-- Limites gerais/por provider, cooldown por chave e máximo total de tentativas.
-- Medição persistente de chamadas, tokens, caracteres, segundos e créditos.
-- Tavily Search disponível como ferramenta nativa em AI Task e Conversation.
-- Flag geral **Habilitar pesquisa na internet**, ligada por padrão.
-- Cinco frases configuráveis de latência com geração TTS antecipada, cache,
-  escolha aleatória sem repetição imediata e pré-visualização.
-- Migração automática e não destrutiva para o esquema 2:10.
+- Rota editável dentro de Conversation, AI Task, STT e TTS.
+- Select múltiplo pesquisável: digite para filtrar e selecione os providers na
+  ordem de execução; os itens aparecem da esquerda para a direita por prioridade.
+- Painel geral de rotas e telas dos serviços atualizam o mesmo catálogo central,
+  sem manter duas configurações concorrentes.
+- Campos dinâmicos: parâmetros Gemini aparecem somente com Google AI na rota;
+  campos Speech aparecem somente com Azure na rota.
+- AI Task agora possui rota e modelo independentes para geração de Image.
+- TTS ganhou voz Google específica para operação principal ou fallback, evitando
+  enviar nomes de voz Azure ao Gemini.
+- O runtime de TTS, Image e a identificação do dispositivo seguem a prioridade
+  da rota central.
+- Migração automática e não destrutiva para o esquema `2:11`.
 
 ## Migração e compatibilidade
 
-- Todas as instâncias antigas da mesma tecnologia são consolidadas, preservando
-  as credenciais e seus IDs.
-- Rotas legadas são convertidas para os providers tecnológicos correspondentes.
-- O antigo controle de Google Search por Conversation torna-se a nova chave
-  geral. Sem valor anterior explícito, a pesquisa fica ligada.
-- AI Task, Conversation, STT, TTS, Image, áudio externo, callback do player e
-  barge-in permanecem compatíveis.
-- Para usar pesquisa após a atualização, cadastre uma chave Tavily e confirme a
-  rota Search.
+- Rotas, providers, API keys, regiões, limites e histórico de consumo da
+  `v1.2.0` são preservados.
+- Modelos, prompts, personalidade, temperatura, Top P, Top K e demais opções das
+  entidades existentes permanecem intactos.
+- O antigo campo interno `provider` continua aceito para compatibilidade, mas
+  deixa de decidir a execução; a rota central passa a ser a fonte de verdade.
+- Tavily Search, frases de latência, áudio externo, callback do player, barge-in
+  e integração com o Luna Satellite permanecem compatíveis.
 
-## Segurança e limites
+## Como funciona a nova rota
 
-- Segredos não aparecem nos diagnósticos; somente sufixos mascarados.
-- `0` significa ilimitado para cotas e tentar todas as opções para tentativas.
-- Contadores locais ajudam a controlar consumo, mas não substituem a cota e o
-  faturamento oficiais dos providers.
+1. Abra a configuração de uma entidade Conversation, AI Task, STT ou TTS.
+2. No campo **Rota de providers**, digite para pesquisar um provider.
+3. Selecione os providers na ordem desejada, por exemplo `Azure → Google AI`.
+4. A tela é atualizada para exibir somente os parâmetros pertinentes à seleção.
+5. Ao salvar, a mesma ordem aparece no painel geral **Rotas dos serviços**.
+
+O painel geral também usa o novo select pesquisável e pode continuar sendo usado
+para revisar ou alterar todas as rotas em um só lugar.
 
 ## Status de validação
 
-Sintaxe, formatação, JSON, migração, seleção de credenciais, limites, failover,
-Tavily, ferramenta Search, frases de latência e regressões de áudio foram
-validados sem credenciais. Recomenda-se publicar inicialmente como **pré-release**
-até concluir testes reais no Home Assistant 2026.7.4 com Google, Azure, Tavily,
-Atom e os media players utilizados.
+Foram validados sintaxe Python, JSON, migração, selects pesquisáveis, sincronismo
+das rotas, exibição condicional, Image separado, fallback de voz TTS e toda a
+suíte de regressão incluída. Testes com credenciais reais e reprodução física no
+Home Assistant 2026.7.4 ainda são recomendados antes de promover para estável.
 
 ## Dados para a release do GitHub
 
-- **Tag:** `v1.2.0`
-- **Título:** `Luna Assistant Prime v1.2.0`
-- **Commit sugerido:** `[ChatGPT] Luna Assistant Prime v1.2.0: add provider routes, Tavily Search and latency feedback`
+- **Tag:** `v1.3.0`
+- **Título:** `Luna Assistant Prime v1.3.0`
+- **Commit sugerido:** `[ChatGPT] Luna Assistant Prime v1.3.0: add searchable service routes and provider-aware settings`
 - **Tipo inicial recomendado:** pré-release

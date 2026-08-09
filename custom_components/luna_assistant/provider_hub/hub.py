@@ -14,9 +14,12 @@ from ..const import (
     CONF_AZURE_OUTPUT_FORMAT,
     CONF_AZURE_STT_PROFANITY,
     CONF_AZURE_VOICE,
+    CONF_GOOGLE_TTS_VOICE,
     DEFAULT_AZURE_OUTPUT_FORMAT,
     DEFAULT_AZURE_STT_PROFANITY,
     DEFAULT_AZURE_VOICE,
+    DEFAULT_GOOGLE_TTS_VOICE,
+    GOOGLE_TTS_VOICES,
     DEFAULT_TAVILY_MAX_RESULTS,
     DEFAULT_TAVILY_SEARCH_DEPTH,
     PROVIDER_GOOGLE,
@@ -199,11 +202,21 @@ class LunaProviderHub:
         for provider in self._provider_order(ProviderCapability.TTS):
             try:
                 if provider == PROVIDER_GOOGLE:
+                    google_voice = (
+                        voice
+                        if voice in GOOGLE_TTS_VOICES
+                        else str(
+                            options.get(
+                                CONF_GOOGLE_TTS_VOICE,
+                                DEFAULT_GOOGLE_TTS_VOICE,
+                            )
+                        )
+                    )
                     return await self.google.async_synthesize(
                         provider_instance=provider,
                         message=message,
                         model=model,
-                        voice=voice or "zephyr",
+                        voice=google_voice,
                         temperature=temperature,
                         style_prompt=style_prompt,
                     )
@@ -266,11 +279,24 @@ class LunaProviderHub:
         self.validate_capability(route[0], capability)
 
     @_attempt_scoped
-    async def async_generate_image(self, callback, provider: str = PROVIDER_GOOGLE):
-        self.validate_capability(provider, ProviderCapability.IMAGE)
-        return await self.google.async_generate_image(
-            callback, provider_instance=provider
-        )
+    @_attempt_scoped
+    async def async_generate_image(self, callback):
+        """Generate an image through the centrally ordered Image route."""
+        last_error: ProviderError | None = None
+        for provider in self._provider_order(ProviderCapability.IMAGE):
+            try:
+                self.validate_capability(provider, ProviderCapability.IMAGE)
+                if provider == PROVIDER_GOOGLE:
+                    return await self.google.async_generate_image(
+                        callback, provider_instance=provider
+                    )
+            except ProviderError as err:
+                last_error = err
+                if err.category not in FAILOVER_CATEGORIES:
+                    raise
+        if last_error is not None:
+            raise last_error
+        raise ProviderError("route", "credentials", "No Image route is available")
 
     async def async_close(self) -> None:
         await self.credentials.async_close()

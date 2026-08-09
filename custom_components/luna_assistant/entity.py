@@ -55,7 +55,6 @@ from .const import (
     CONF_HATE_BLOCK_THRESHOLD,
     CONF_LATENCY_PROFILE,
     CONF_MAX_TOKENS,
-    CONF_PROVIDER,
     CONF_SEXUAL_BLOCK_THRESHOLD,
     CONF_TEMPERATURE,
     CONF_THINKING_BUDGET,
@@ -63,7 +62,6 @@ from .const import (
     CONF_TOP_K,
     CONF_TOP_P,
     DEFAULT_LATENCY_PROFILE,
-    DEFAULT_PROVIDER,
     DOMAIN,
     FILE_POLLING_INTERVAL_SECONDS,
     LATENCY_PROFILE_MAX_TOKENS,
@@ -80,6 +78,7 @@ from .const import (
     RECOMMENDED_TOP_P,
     TIMEOUT_MILLIS,
 )
+from .provider_hub.models import ProviderCapability
 
 if TYPE_CHECKING:
     from . import LunaAssistantConfigEntry
@@ -584,7 +583,14 @@ class LunaProviderLLMBaseEntity(Entity):
         self._provider_hub = self._core.providers
         self._genai_client = self._provider_hub.google_client
         self._attr_unique_id = subentry.subentry_id
-        provider = subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+        capability = {
+            "conversation": ProviderCapability.CONVERSATION,
+            "stt": ProviderCapability.STT,
+            "tts": ProviderCapability.TTS,
+            "ai_task_data": ProviderCapability.AI_TASK,
+        }.get(subentry.subentry_type, ProviderCapability.CONVERSATION)
+        route = self._provider_hub.credentials.route_for(capability)
+        provider = route[0] if route else "google"
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,

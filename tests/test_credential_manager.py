@@ -34,7 +34,7 @@ assert "async_step_providers" in CONFIG
 assert "async_step_provider_credentials" in CONFIG
 assert "PROVIDER_TAVILY" in CONFIG
 assert "duplicate_credential" in CONFIG
-assert "MINOR_VERSION = 10" in CONFIG
+assert "MINOR_VERSION = 11" in CONFIG
 assert "credentials_from_entry(entry)" in INIT
 assert "minor_version=10" in INIT
 assert "def _provider_order" in HUB

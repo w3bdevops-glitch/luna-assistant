@@ -136,7 +136,7 @@
           "route_search": "Search route",
           "route_image": "Image route"
         },
-        "description": "Enter provider ids in order, separated by commas. Example: azure, google.",
+        "description": "Search and select providers in execution order. The selected chips show priority from left to right.",
         "title": "Ordered service routes"
       },
       "latency_feedback": {
@@ -227,7 +227,8 @@
       "entry_type": "Conversation agent",
       "error": {
         "media_player_required": "Select a media player for Google Nest or Other media player output.",
-        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub.",
+        "invalid_service_route": "Select at least one enabled provider that supports Conversation."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure conversation agent",
@@ -257,7 +258,8 @@
             "audio_output": "Audio output",
             "output_media_player": "Output media player",
             "output_tts_entity": "Luna TTS provider",
-            "provider": "Provider"
+            "provider": "Provider",
+            "service_route": "Provider route (in priority order)"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
@@ -265,7 +267,8 @@
             "thinking_level": "Reasoning level for compatible Gemini models.",
             "audio_output": "Atom uses the normal Assist Pipeline. Google Nest and Other media player prefer Microsoft TTS when available, then fall back to Luna TTS.",
             "output_media_player": "Required for Google Nest or Other media player. The selected media_player entity_id is used directly; the friendly name is never sent to TTS.",
-            "output_tts_entity": "Optional Luna TTS entity used for external playback. Choose the Google or Azure entity exposed by Provider Hub."
+            "output_tts_entity": "Optional Luna TTS entity used for external playback. Choose the Google or Azure entity exposed by Provider Hub.",
+            "service_route": "Type to filter providers, then select them in execution order. After changing the route, submit once to refresh provider fields and submit again to save."
           }
         }
       }
@@ -277,7 +280,8 @@
       },
       "entry_type": "Speech-to-text",
       "error": {
-        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub.",
+        "invalid_service_route": "Select at least one enabled provider that supports STT."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text",
@@ -301,12 +305,14 @@
             "top_p": "Top P",
             "prompt": "Transcription instructions",
             "provider": "Provider",
-            "azure_stt_profanity": "Azure profanity handling"
+            "azure_stt_profanity": "Azure profanity handling",
+            "service_route": "Provider route (in priority order)"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
-            "thinking_level": "Reasoning level for compatible Gemini models."
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "service_route": "Type to filter providers, then select them in execution order. After changing the route, submit once to refresh provider fields and submit again to save."
           }
         }
       }
@@ -322,7 +328,8 @@
         "azure_region_required": "Enter the Azure Speech region.",
         "invalid_auth": "The Azure Speech key or region is invalid.",
         "cannot_connect": "Unable to connect to Azure Speech.",
-        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub.",
+        "invalid_service_route": "Select at least one enabled provider that supports TTS."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure text-to-speech",
@@ -351,13 +358,17 @@
             "azure_speech_key": "Azure Speech key",
             "azure_region": "Azure region",
             "azure_voice": "Azure voice",
-            "azure_output_format": "Azure audio format"
+            "azure_output_format": "Azure audio format",
+            "google_tts_voice": "Google TTS fallback voice",
+            "service_route": "Provider route (in priority order)"
           },
           "data_description": {
             "prompt": "Describe tone, pace, emotion, and speaking style. Luna sends these instructions to the TTS model before the response.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
             "thinking_level": "Reasoning level for compatible Gemini models.",
-            "provider": "Google supports Luna TTS through Gemini. Azure uses the regional Speech service and returns WAV audio directly."
+            "provider": "Google supports Luna TTS through Gemini. Azure uses the regional Speech service and returns WAV audio directly.",
+            "google_tts_voice": "Voice used by Google Gemini TTS when Google is selected or used as fallback.",
+            "service_route": "Type to filter providers, then select them in execution order. Submit once to refresh provider fields and submit again to save."
           }
         }
       }
@@ -369,7 +380,8 @@
       },
       "entry_type": "AI task",
       "error": {
-        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub."
+        "provider_credentials_required": "Add an enabled credential for this provider and service in Configure → Provider Hub.",
+        "invalid_service_route": "Select at least one enabled provider that supports this service."
       },
       "initiate_flow": {
         "reconfigure": "Reconfigure ai task",
@@ -391,12 +403,18 @@
             "thinking_level": "Thinking level",
             "top_k": "Top K",
             "top_p": "Top P",
-            "provider": "Provider"
+            "provider": "Provider",
+            "service_route": "AI Task provider route (in priority order)",
+            "image_route": "Image provider route (in priority order)",
+            "image_model": "Image model"
           },
           "data_description": {
             "prompt": "Instructions sent to the model.",
             "thinking_budget": "Reasoning token budget for Gemini 2.5.",
-            "thinking_level": "Reasoning level for compatible Gemini models."
+            "thinking_level": "Reasoning level for compatible Gemini models.",
+            "service_route": "Type to filter providers, then select them in execution order. Submit once to refresh provider fields and submit again to save.",
+            "image_route": "Type to filter providers for image generation. This updates the central Image route.",
+            "image_model": "Model used only for image generation through Google AI."
           }
         }
       }

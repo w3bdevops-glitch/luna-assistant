@@ -66,6 +66,8 @@ from .const import (
     CONF_FAILOVER_COOLDOWN,
     CONF_HARASSMENT_BLOCK_THRESHOLD,
     CONF_HATE_BLOCK_THRESHOLD,
+    CONF_IMAGE_MODEL,
+    CONF_IMAGE_ROUTE,
     CONF_LATENCY_PROFILE,
     CONF_MAX_TOKENS,
     CONF_MONTHLY_REQUEST_LIMIT,
@@ -80,6 +82,7 @@ from .const import (
     CONF_PROVIDER,
     CONF_PROVIDERS,
     CONF_ROUTES,
+    CONF_SERVICE_ROUTE,
     CONF_SEARCH_ENABLED,
     CONF_PROVIDER_ACTION,
     CONF_PROVIDER_ADAPTER,
@@ -104,6 +107,7 @@ from .const import (
     CONF_TOP_K,
     CONF_TOP_P,
     CONF_VOICE_MOOD,
+    CONF_GOOGLE_TTS_VOICE,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_AUDIO_OUTPUT,
     DEFAULT_AZURE_OUTPUT_FORMAT,
@@ -115,12 +119,12 @@ from .const import (
     DEFAULT_FAILOVER_COOLDOWN,
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PERSONALITY,
-    DEFAULT_PROVIDER,
     DEFAULT_SEARCH_ENABLED,
     DEFAULT_LATENCY_FEEDBACK_DELAY_MS,
     DEFAULT_LATENCY_PHRASES,
     DEFAULT_RESPONSE_LENGTH,
     DEFAULT_ROTATION_STRATEGY,
+    DEFAULT_GOOGLE_TTS_VOICE,
     DEFAULT_SPEAKING_PACE,
     DEFAULT_STT_NAME,
     DEFAULT_STT_PROMPT,
@@ -136,10 +140,12 @@ from .const import (
     PROVIDER_DISPLAY_NAMES,
     PROVIDER_GOOGLE,
     PROVIDER_TAVILY,
+    GOOGLE_TTS_VOICES,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_HARM_BLOCK_THRESHOLD,
+    RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_STT_MODEL,
     RECOMMENDED_STT_OPTIONS,
@@ -192,7 +198,7 @@ class LunaAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the provider-aware Luna Assistant Prime config flow."""
 
     VERSION = 2
-    MINOR_VERSION = 10
+    MINOR_VERSION = 11
 
     async def async_step_api(
         self, user_input: dict[str, Any] | None = None
@@ -830,6 +836,42 @@ class LunaAssistantOptionsFlow(OptionsFlow):
     def _provider(self) -> dict[str, Any]:
         return self._providers[self._editing_provider]
 
+    @staticmethod
+    def _normalize_route(value: Any) -> list[str]:
+        """Normalize selector values while preserving the selected priority."""
+        values = value if isinstance(value, (list, tuple)) else [value]
+        route: list[str] = []
+        for item in values:
+            provider = str(item).strip().lower()
+            if provider and provider not in route:
+                route.append(provider)
+        return route
+
+    def _route_options(
+        self, capability: str, current: list[str] | None = None
+    ) -> list[SelectOptionDict]:
+        """Return enabled and compatible providers for a searchable selector."""
+        current = current or []
+        options: list[SelectOptionDict] = []
+        for provider, supported in PROVIDER_CAPABILITIES.items():
+            config = self._providers.get(provider, {})
+            enabled = bool(config.get("enabled", True))
+            configured = capability in config.get("capabilities", supported)
+            if enabled and configured and capability in supported:
+                options.append(
+                    SelectOptionDict(
+                        value=provider, label=PROVIDER_DISPLAY_NAMES[provider]
+                    )
+                )
+            elif provider in current:
+                options.append(
+                    SelectOptionDict(
+                        value=provider,
+                        label=f"{PROVIDER_DISPLAY_NAMES[provider]} ⚠",
+                    )
+                )
+        return options
+
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
         return self.async_show_menu(
@@ -1189,15 +1231,6 @@ class LunaAssistantOptionsFlow(OptionsFlow):
             },
         )
 
-    @staticmethod
-    def _parse_route(value: str) -> list[str]:
-        route: list[str] = []
-        for item in str(value).replace("→", ",").split(","):
-            provider = item.strip().lower()
-            if provider and provider not in route:
-                route.append(provider)
-        return route
-
     async def async_step_routes(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
         fields = {
@@ -1211,7 +1244,7 @@ class LunaAssistantOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             parsed = {
-                capability: self._parse_route(user_input[field])
+                capability: self._normalize_route(user_input.get(field, []))
                 for field, capability in fields.items()
             }
             for field, capability in fields.items():
@@ -1230,6 +1263,13 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                     for provider in route
                 ):
                     errors[field] = "invalid_route"
+                    continue
+                eligible = {
+                    option["value"]
+                    for option in self._route_options(capability)
+                }
+                if any(provider not in eligible for provider in route):
+                    errors[field] = "invalid_route"
             if not errors:
                 self._routes.update(parsed)
                 return await self.async_step_init()
@@ -1238,8 +1278,16 @@ class LunaAssistantOptionsFlow(OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        field, default=", ".join(self._routes.get(capability, []))
-                    ): str
+                        field, default=self._routes.get(capability, [])
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._route_options(
+                                capability, self._routes.get(capability, [])
+                            ),
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
                     for field, capability in fields.items()
                 }
             ),
@@ -1365,7 +1413,8 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
     """Flow for managing conversation subentries."""
 
     last_rendered_recommended = False
-    last_rendered_provider = DEFAULT_PROVIDER
+    last_rendered_route: tuple[str, ...] = ()
+    last_rendered_image_route: tuple[str, ...] = ()
 
     @property
     def _genai_client(self) -> genai.Client:
@@ -1381,6 +1430,53 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
         return self.source == "user"
+
+    @property
+    def _capability(self) -> ProviderCapability:
+        """Return the primary capability configured by this subentry."""
+        return {
+            "conversation": ProviderCapability.CONVERSATION,
+            "stt": ProviderCapability.STT,
+            "tts": ProviderCapability.TTS,
+            "ai_task_data": ProviderCapability.AI_TASK,
+        }[self._subentry_type]
+
+    @staticmethod
+    def _normalize_route(value: Any) -> list[str]:
+        """Normalize a searchable multi-select route without changing order."""
+        values = value if isinstance(value, (list, tuple)) else [value]
+        route: list[str] = []
+        for item in values:
+            provider = str(item).strip().lower()
+            if provider and provider not in route:
+                route.append(provider)
+        return route
+
+    def _save_parent_routes(
+        self, route: list[str], image_route: list[str] | None = None
+    ) -> None:
+        """Persist the service route in the single central route catalogue."""
+        entry = self._get_entry()
+        routes = routes_from_entry(entry)
+        routes[self._capability.value] = route
+        if image_route is not None:
+            routes[ProviderCapability.IMAGE.value] = image_route
+        parent_options = dict(entry.options)
+        parent_options[CONF_ROUTES] = routes
+        self.hass.config_entries.async_update_entry(entry, options=parent_options)
+
+    def _validate_route(
+        self, route: list[str], capability: ProviderCapability
+    ) -> bool:
+        """Validate every selected provider against enabled credentials."""
+        if not route:
+            return False
+        try:
+            for provider in route:
+                self._provider_hub.validate_capability(provider, capability)
+        except ProviderError:
+            return False
+        return True
 
     async def async_step_set_options(
         self, user_input: dict[str, Any] | None = None
@@ -1411,18 +1507,40 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             self.last_rendered_recommended = cast(
                 bool, options.get(CONF_RECOMMENDED, False)
             )
-            self.last_rendered_provider = str(
-                options.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+            central_routes = routes_from_entry(self._get_entry())
+            self.last_rendered_route = tuple(
+                central_routes.get(self._capability.value, [])
+            )
+            self.last_rendered_image_route = tuple(
+                central_routes.get(ProviderCapability.IMAGE.value, [])
             )
 
         else:
-            rendered_provider_matches = (
-                user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER)
-                == self.last_rendered_provider
+            selected_route = self._normalize_route(
+                user_input.get(CONF_SERVICE_ROUTE, [])
+            )
+            selected_image_route = self._normalize_route(
+                user_input.get(CONF_IMAGE_ROUTE, [])
+            )
+            route_is_valid = self._validate_route(selected_route, self._capability)
+            if not route_is_valid:
+                errors[CONF_SERVICE_ROUTE] = "invalid_service_route"
+            if self._subentry_type == "ai_task_data" and not self._validate_route(
+                selected_image_route, ProviderCapability.IMAGE
+            ):
+                errors[CONF_IMAGE_ROUTE] = "invalid_service_route"
+
+            rendered_routes_match = (
+                tuple(selected_route) == self.last_rendered_route
+                and (
+                    self._subentry_type != "ai_task_data"
+                    or tuple(selected_image_route) == self.last_rendered_image_route
+                )
             )
             if (
                 user_input[CONF_RECOMMENDED] == self.last_rendered_recommended
-                and rendered_provider_matches
+                and rendered_routes_match
+                and not errors
             ):
                 if not user_input.get(CONF_LLM_HASS_API):
                     user_input.pop(CONF_LLM_HASS_API, None)
@@ -1435,37 +1553,37 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                 ):
                     errors[CONF_OUTPUT_MEDIA_PLAYER] = "media_player_required"
 
-                capability = {
-                    "conversation": ProviderCapability.CONVERSATION,
-                    "stt": ProviderCapability.STT,
-                    "tts": ProviderCapability.TTS,
-                    "ai_task_data": ProviderCapability.AI_TASK,
-                }[self._subentry_type]
-                try:
-                    await self._provider_hub.async_validate_options(
-                        user_input, capability
-                    )
-                except ProviderError:
-                    errors["base"] = "provider_credentials_required"
-
                 if not errors:
+                    saved_data = dict(user_input)
+                    saved_data.pop(CONF_SERVICE_ROUTE, None)
+                    saved_data.pop(CONF_IMAGE_ROUTE, None)
                     if self._is_new:
-                        return self.async_create_entry(
-                            title=user_input.pop(CONF_NAME),
-                            data=user_input,
+                        result = self.async_create_entry(
+                            title=saved_data.pop(CONF_NAME),
+                            data=saved_data,
                         )
-
-                    return self.async_update_and_abort(
-                        self._get_entry(),
-                        self._get_reconfigure_subentry(),
-                        data=user_input,
+                    else:
+                        result = self.async_update_and_abort(
+                            self._get_entry(),
+                            self._get_reconfigure_subentry(),
+                            data=saved_data,
+                        )
+                    self._save_parent_routes(
+                        selected_route,
+                        selected_image_route
+                        if self._subentry_type == "ai_task_data"
+                        else None,
                     )
+                    return result
 
             # Re-render the options again, now with the recommended options shown/hidden
             self.last_rendered_recommended = user_input[CONF_RECOMMENDED]
-            self.last_rendered_provider = str(
-                user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER)
-            )
+            if route_is_valid:
+                self.last_rendered_route = tuple(selected_route)
+            if self._subentry_type == "ai_task_data" and not errors.get(
+                CONF_IMAGE_ROUTE
+            ):
+                self.last_rendered_image_route = tuple(selected_image_route)
 
             options = user_input
 
@@ -1475,7 +1593,7 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             self._subentry_type,
             options,
             self._genai_client,
-            self._provider_hub,
+            self._get_entry(),
         )
         return self.async_show_form(
             step_id="set_options", data_schema=vol.Schema(schema), errors=errors
@@ -1491,7 +1609,7 @@ async def google_generative_ai_config_option_schema(
     subentry_type: str,
     options: Mapping[str, Any],
     genai_client: genai.Client,
-    provider_hub,
+    config_entry: ConfigEntry,
 ) -> dict:
     """Return a schema for Google Generative AI completion options."""
     hass_apis: list[SelectOptionDict] = [
@@ -1532,7 +1650,73 @@ async def google_generative_ai_config_option_schema(
         "tts": ProviderCapability.TTS,
         "ai_task_data": ProviderCapability.AI_TASK,
     }[subentry_type]
-    route = provider_hub.credentials.route_for(capability)
+    central_routes = routes_from_entry(config_entry)
+    route = LLMSubentryFlowHandler._normalize_route(
+        options.get(
+            CONF_SERVICE_ROUTE,
+            central_routes.get(capability.value, []),
+        )
+    )
+    image_route = LLMSubentryFlowHandler._normalize_route(
+        options.get(
+            CONF_IMAGE_ROUTE,
+            central_routes.get(ProviderCapability.IMAGE.value, []),
+        )
+    )
+
+    def route_options(
+        route_capability: ProviderCapability, current: list[str]
+    ) -> list[SelectOptionDict]:
+        """Build a searchable provider selector for one service."""
+        configured_providers = providers_from_entry(config_entry)
+        selector_options: list[SelectOptionDict] = []
+        for provider, supported in PROVIDER_CAPABILITIES.items():
+            provider_config = configured_providers.get(provider, {})
+            enabled = bool(provider_config.get("enabled", True))
+            configured = route_capability.value in provider_config.get(
+                "capabilities", supported
+            )
+            if enabled and configured and route_capability.value in supported:
+                selector_options.append(
+                    SelectOptionDict(
+                        value=provider, label=PROVIDER_DISPLAY_NAMES[provider]
+                    )
+                )
+            elif provider in current:
+                selector_options.append(
+                    SelectOptionDict(
+                        value=provider,
+                        label=f"{PROVIDER_DISPLAY_NAMES[provider]} ⚠",
+                    )
+                )
+        return selector_options
+
+    schema.update(
+        {
+            vol.Required(CONF_SERVICE_ROUTE, default=route): SelectSelector(
+                SelectSelectorConfig(
+                    options=route_options(capability, route),
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+    )
+    if subentry_type == "ai_task_data":
+        schema.update(
+            {
+                vol.Required(CONF_IMAGE_ROUTE, default=image_route): SelectSelector(
+                    SelectSelectorConfig(
+                        options=route_options(
+                            ProviderCapability.IMAGE, image_route
+                        ),
+                        multiple=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }
+        )
+
     has_google = PROVIDER_GOOGLE in route
     has_azure = PROVIDER_AZURE in route
 
@@ -1713,6 +1897,22 @@ async def google_generative_ai_config_option_schema(
                     ),
                 }
             )
+        if has_google:
+            schema.update(
+                {
+                    vol.Required(
+                        CONF_GOOGLE_TTS_VOICE,
+                        default=options.get(
+                            CONF_GOOGLE_TTS_VOICE, DEFAULT_GOOGLE_TTS_VOICE
+                        ),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            mode=SelectSelectorMode.DROPDOWN,
+                            options=list(GOOGLE_TTS_VOICES),
+                        )
+                    )
+                }
+            )
 
     schema.update(
         {
@@ -1725,7 +1925,10 @@ async def google_generative_ai_config_option_schema(
     if options.get(CONF_RECOMMENDED):
         return schema
 
-    if not has_google:
+    has_google_image = (
+        subentry_type == "ai_task_data" and PROVIDER_GOOGLE in image_route
+    )
+    if not has_google and not has_google_image:
         return schema
 
     api_models_pager = await genai_client.aio.models.list(config={"query_base": True})
@@ -1741,6 +1944,10 @@ async def google_generative_ai_config_option_schema(
         if (
             api_model.name
             and ("tts" in api_model.name) == (subentry_type == "tts")
+            and (
+                subentry_type == "tts"
+                or "image" not in api_model.name.casefold()
+            )
             and "vision" not in api_model.name
             and api_model.supported_actions
             and "generateContent" in api_model.supported_actions
@@ -1778,24 +1985,68 @@ async def google_generative_ai_config_option_schema(
     else:
         default_model = RECOMMENDED_CHAT_MODEL
 
-    schema.update(
-        {
-            vol.Optional(
-                CONF_CHAT_MODEL,
-                description={"suggested_value": options.get(CONF_CHAT_MODEL)},
-                default=default_model,
-            ): SelectSelector(
-                SelectSelectorConfig(mode=SelectSelectorMode.DROPDOWN, options=models)
-            ),
-            vol.Optional(
-                CONF_TEMPERATURE,
-                description={"suggested_value": options.get(CONF_TEMPERATURE)},
-                default=RECOMMENDED_TEMPERATURE,
-            ): NumberSelector(NumberSelectorConfig(min=0, max=2, step=0.05)),
-        }
-    )
+    if has_google:
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_CHAT_MODEL,
+                    description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+                    default=default_model,
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN, options=models
+                    )
+                ),
+                vol.Optional(
+                    CONF_TEMPERATURE,
+                    description={"suggested_value": options.get(CONF_TEMPERATURE)},
+                    default=RECOMMENDED_TEMPERATURE,
+                ): NumberSelector(NumberSelectorConfig(min=0, max=2, step=0.05)),
+            }
+        )
 
-    if subentry_type != "tts":
+    if has_google_image:
+        image_models = [
+            SelectOptionDict(
+                label=api_model.name.lstrip("models/"),
+                value=api_model.name,
+            )
+            for api_model in sorted(
+                api_models, key=lambda x: (x.name or "").lstrip("models/")
+            )
+            if (
+                api_model.name
+                and "image" in api_model.name.casefold()
+                and api_model.supported_actions
+                and "generateContent" in api_model.supported_actions
+            )
+        ]
+        if not any(item["value"] == RECOMMENDED_IMAGE_MODEL for item in image_models):
+            image_models.insert(
+                0,
+                SelectOptionDict(
+                    label=RECOMMENDED_IMAGE_MODEL.lstrip("models/"),
+                    value=RECOMMENDED_IMAGE_MODEL,
+                ),
+            )
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_IMAGE_MODEL,
+                    description={
+                        "suggested_value": options.get(CONF_IMAGE_MODEL)
+                    },
+                    default=RECOMMENDED_IMAGE_MODEL,
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=image_models,
+                    )
+                )
+            }
+        )
+
+    if has_google and subentry_type != "tts":
         schema.update(
             {
                 vol.Optional(

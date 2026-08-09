@@ -441,6 +441,18 @@ async def async_migrate_entry(
             minor_version=10,
         )
 
+    if entry.version == 2 and entry.minor_version < 11:
+        # Prime v1.3 keeps one central route catalogue while exposing the same
+        # ordered route in each service form. Existing routes and subentry model
+        # parameters already use the compatible storage layout.
+        migrated_options = dict(entry.options)
+        migrated_options[CONF_ROUTES] = routes_from_entry(entry)
+        hass.config_entries.async_update_entry(
+            entry,
+            options=migrated_options,
+            minor_version=11,
+        )
+
     LOGGER.debug(
         "Migration to version %s:%s successful", entry.version, entry.minor_version
     )

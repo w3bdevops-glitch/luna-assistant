@@ -19,7 +19,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
 from .const import (
-    CONF_CHAT_MODEL,
+    CONF_IMAGE_MODEL,
     CONF_RECOMMENDED,
     LOGGER,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
@@ -30,7 +30,7 @@ from .entity import (
     LunaProviderLLMBaseEntity,
     async_prepare_files_for_prompt,
 )
-from .provider_hub import ProviderError
+from .provider_hub import ProviderCapability, ProviderError
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigSubentry
@@ -72,9 +72,7 @@ class LunaAITaskEntity(
             | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
         )
 
-        if subentry.data.get(CONF_RECOMMENDED) or "-image" in subentry.data.get(
-            CONF_CHAT_MODEL, ""
-        ):
+        if self._provider_hub.available_providers(ProviderCapability.IMAGE):
             self._attr_supported_features |= ai_task.AITaskEntityFeature.GENERATE_IMAGE
 
     @override
@@ -133,7 +131,7 @@ class LunaAITaskEntity(
         user_message = chat_log.content[-1]
         assert isinstance(user_message, conversation.UserContent)
 
-        model = self.subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_IMAGE_MODEL)
+        model = self.subentry.data.get(CONF_IMAGE_MODEL, RECOMMENDED_IMAGE_MODEL)
 
         async def generate(client):
             prompt_parts: list[PartUnionDict] = [user_message.content]
