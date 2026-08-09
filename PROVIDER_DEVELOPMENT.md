@@ -1,34 +1,40 @@
-# Como adicionar um provedor
+# Como adicionar um provider
 
-Exemplo futuro: OpenAI.
+Um provider representa uma tecnologia, não uma conta ou API key.
 
-1. Crie `custom_components/luna_assistant/provider_hub/openai.py`.
-2. Implemente `LunaProviderAdapter`.
-3. Declare apenas as capacidades reais, por exemplo:
+1. Adicione o identificador, nome, capacidades e rota padrão em `const.py`.
+2. Crie `custom_components/luna_assistant/provider_hub/<provider>.py`.
+3. Implemente `LunaProviderAdapter` e declare somente as capacidades reais.
+4. Obtenha credenciais exclusivamente por `CredentialManager.async_acquire()`.
+5. Após sucesso, chame `async_complete()` com a unidade medida; após falha,
+   normalize em `ProviderError` e chame `async_fail()`.
+6. Registre uma única instância tecnológica em `LunaProviderHub`.
+7. Adicione o formulário do provider e de suas credenciais ao Options Flow.
+8. Acrescente traduções, documentação, testes do adaptador, rotação, limites,
+   failover e migração.
 
-   ```python
-   capabilities = frozenset({
-       ProviderCapability.AI_TASK,
-       ProviderCapability.CONVERSATION,
-       ProviderCapability.STT,
-       ProviderCapability.TTS,
-   })
-   ```
+Exemplo de capacidades:
 
-4. Implemente somente os métodos correspondentes:
-   `async_handle_chat_log`, `async_transcribe` e/ou `async_synthesize`.
-5. Registre uma instância em `LunaProviderHub.__init__`.
-6. Adicione o formulário de credenciais do provedor no Options Flow e declare
-   a unidade de consumo de cada capacidade. Use `CredentialManager`; não leia
-   chaves diretamente da entidade.
-7. A lista de provedores
-   exibida para cada serviço vem automaticamente de `available_providers()`.
-8. Acrescente traduções e testes do adaptador, rotação e failover.
+```python
+capabilities = frozenset(
+    {
+        ProviderCapability.AI_TASK,
+        ProviderCapability.CONVERSATION,
+        ProviderCapability.STT,
+        ProviderCapability.TTS,
+    }
+)
+```
 
-Não altere o Luna Satellite, o Assist Pipeline ou as entidades de plataforma.
-As respostas devem usar `ProviderError` e áudio deve usar `AudioResult`.
+Implemente apenas os contratos correspondentes, como
+`async_handle_chat_log`, `async_transcribe`, `async_synthesize` ou
+`async_search`.
 
-## Regra de dependência
+## Regras de dependência
 
-Código específico de fornecedor fica dentro de `provider_hub/<provider>.py`.
-Luna Core e as entidades não devem importar SDKs de fornecedores novos.
+- Código do fornecedor fica em `provider_hub/<provider>.py`.
+- Entidades não leem segredos e não importam SDKs de providers.
+- Rotas usam identificadores tecnológicos e nunca IDs de credenciais.
+- Ferramentas do modelo ficam no Tools Hub, mesmo quando consomem um provider.
+- Luna Core, Assist Pipeline e Luna Satellite não devem ganhar lógica específica
+  do novo fornecedor.

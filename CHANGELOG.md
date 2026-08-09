@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.2.0-prime
+
+- Substituídas instâncias duplicadas por um catálogo fixo de tecnologias:
+  Google Gemini, Microsoft Azure Speech e Tavily.
+- Adicionadas rotas centrais e ordenadas para AI Task, Conversation, STT, TTS,
+  Search e Image.
+- Adicionada rotação por maior saldo estimado ou round-robin, com desempate
+  distribuído, cooldown individual e limite total de tentativas por operação.
+- Adicionado Tavily Search com múltiplas chaves, profundidade basic/advanced,
+  limite de resultados e contabilidade de créditos.
+- Adicionada flag geral **Habilitar pesquisa na internet**, ligada por padrão e
+  aplicada a AI Task e Conversation.
+- Removido o controle de Search por Conversation; o valor legado é migrado para
+  a configuração geral.
+- Adicionadas cinco frases configuráveis para mascarar latência da pesquisa,
+  geração TTS antecipada, cache por hash, reprodução aleatória sem repetição e
+  pré-visualização.
+- Adicionados serviços para gerar e pré-visualizar frases de latência.
+- Migração não destrutiva para config entry minor version 10, preservando
+  credenciais, IDs, regiões e rotas legadas.
+- Atualizados diagnósticos, traduções, documentação e testes de regressão.
+
+## 1.1.1-prime
+
+- Corrigida a interface para exibir listas independentes por provider.
+- Adicionado catálogo visual de API keys do Google Gemini, sem limite fixo.
+- Adicionado catálogo visual de credenciais Microsoft Azure, cada uma com chave
+  Speech e região próprias, sem limite fixo.
+- Após adicionar, editar ou remover uma credencial, o fluxo retorna à lista do
+  mesmo provider para permitir cadastros consecutivos.
+- Adicionada proteção contra credenciais duplicadas dentro do mesmo provider.
+- Mantidos rotação, prioridade, limites e consumo individual de cada chave.
+- Config entry minor version 9, preservando todas as credenciais e históricos da
+  v1.1.0 sem regravação destrutiva.
+
 ## 1.1.0-prime
 
 - Criado gerenciador central de múltiplas API keys Google e Azure.

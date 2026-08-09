@@ -10,7 +10,6 @@ from functools import partial
 from typing import Any, cast, override
 from uuid import uuid4
 
-import voluptuous as vol
 from google import genai
 from google.genai.errors import APIError, ClientError
 from homeassistant.config_entries import (
@@ -42,6 +41,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 from requests.exceptions import Timeout
+import voluptuous as vol
 
 from .const import (
     AUDIO_OUTPUT_ATOM,
@@ -70,6 +70,7 @@ from .const import (
     CONF_MAX_TOKENS,
     CONF_MONTHLY_REQUEST_LIMIT,
     CONF_MONTHLY_STT_SECONDS_LIMIT,
+    CONF_MONTHLY_SEARCH_CREDIT_LIMIT,
     CONF_MONTHLY_TOKEN_LIMIT,
     CONF_MONTHLY_TTS_CHARACTER_LIMIT,
     CONF_OUTPUT_MEDIA_PLAYER,
@@ -77,18 +78,31 @@ from .const import (
     CONF_PERSONALITY,
     CONF_PRIORITY,
     CONF_PROVIDER,
+    CONF_PROVIDERS,
+    CONF_ROUTES,
+    CONF_SEARCH_ENABLED,
+    CONF_PROVIDER_ACTION,
+    CONF_PROVIDER_ADAPTER,
+    CONF_PROVIDER_CAPABILITIES,
+    CONF_PROVIDER_INSTANCE_ID,
+    CONF_PROVIDER_INSTANCE_NAME,
+    CONF_PROVIDER_INSTANCES,
     CONF_PROVIDER_LIMITS,
     CONF_RECOMMENDED,
     CONF_RESPONSE_LENGTH,
     CONF_ROTATION_STRATEGY,
     CONF_SEXUAL_BLOCK_THRESHOLD,
     CONF_SPEAKING_PACE,
+    CONF_TAVILY_MAX_RESULTS,
+    CONF_TAVILY_SEARCH_DEPTH,
+    CONF_LATENCY_FEEDBACK_ENABLED,
+    CONF_LATENCY_FEEDBACK_DELAY_MS,
+    CONF_LATENCY_PHRASES,
     CONF_TEMPERATURE,
     CONF_THINKING_BUDGET,
     CONF_THINKING_LEVEL,
     CONF_TOP_K,
     CONF_TOP_P,
-    CONF_USE_GOOGLE_SEARCH_TOOL,
     CONF_VOICE_MOOD,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_AUDIO_OUTPUT,
@@ -102,18 +116,26 @@ from .const import (
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PERSONALITY,
     DEFAULT_PROVIDER,
+    DEFAULT_SEARCH_ENABLED,
+    DEFAULT_LATENCY_FEEDBACK_DELAY_MS,
+    DEFAULT_LATENCY_PHRASES,
     DEFAULT_RESPONSE_LENGTH,
     DEFAULT_ROTATION_STRATEGY,
     DEFAULT_SPEAKING_PACE,
     DEFAULT_STT_NAME,
     DEFAULT_STT_PROMPT,
+    DEFAULT_TAVILY_MAX_RESULTS,
+    DEFAULT_TAVILY_SEARCH_DEPTH,
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
     DEFAULT_TTS_STYLE_PROMPT,
     DEFAULT_VOICE_MOOD,
     DOMAIN,
     PROVIDER_AZURE,
+    PROVIDER_CAPABILITIES,
+    PROVIDER_DISPLAY_NAMES,
     PROVIDER_GOOGLE,
+    PROVIDER_TAVILY,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
@@ -128,12 +150,16 @@ from .const import (
     RECOMMENDED_TOP_P,
     RECOMMENDED_TTS_MODEL,
     RECOMMENDED_TTS_OPTIONS,
-    RECOMMENDED_USE_GOOGLE_SEARCH_TOOL,
     ROTATION_STRATEGIES,
     TIMEOUT_MILLIS,
 )
 from .provider_hub import ProviderCapability, ProviderError
-from .provider_hub.credentials import credentials_from_entry
+from .provider_hub.credentials import (
+    credentials_from_entry,
+    provider_instances_from_entry,
+    providers_from_entry,
+    routes_from_entry,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -166,7 +192,7 @@ class LunaAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the provider-aware Luna Assistant Prime config flow."""
 
     VERSION = 2
-    MINOR_VERSION = 8
+    MINOR_VERSION = 10
 
     async def async_step_api(
         self, user_input: dict[str, Any] | None = None
@@ -311,167 +337,293 @@ class LunaAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
         return LunaAssistantOptionsFlow()
 
 
-class LunaAssistantOptionsFlow(OptionsFlow):
-    """Manage provider credentials, budgets, rotation and failover."""
+class _LegacyProviderInstanceOptionsFlow(OptionsFlow):
+    """Manage provider instances and their isolated credential pools."""
+
+    _ADAPTER_CAPABILITIES = {
+        PROVIDER_GOOGLE: ("ai_task", "conversation", "image", "stt", "tts"),
+        PROVIDER_AZURE: ("stt", "tts"),
+    }
 
     def _ensure_state(self) -> None:
         if hasattr(self, "_working_options"):
             return
         self._working_options = dict(self.config_entry.options)
-        self._credentials = credentials_from_entry(self.config_entry)
+        self._provider_instances = provider_instances_from_entry(self.config_entry)
+        self._editing_provider_id: str | None = None
         self._editing_id: str | None = None
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    def _provider(self) -> dict[str, Any]:
+        return next(
+            item
+            for item in self._provider_instances
+            if item["id"] == self._editing_provider_id
+        )
+
+    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
         return self.async_show_menu(
             step_id="init",
-            menu_options=[
-                "general",
-                "add_google",
-                "add_azure",
-                "manage_credentials",
-                "save",
-            ],
+            menu_options=["general", "provider_instances", "save"],
         )
 
-    async def async_step_general(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_general(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
-        provider_limits = self._working_options.get(CONF_PROVIDER_LIMITS, {})
-        google_limits = provider_limits.get(PROVIDER_GOOGLE, {})
-        azure_limits = provider_limits.get(PROVIDER_AZURE, {})
-        google_units = google_limits.get("monthly_unit_limits", {})
-        azure_units = azure_limits.get("monthly_unit_limits", {})
         if user_input is not None:
-            self._working_options.update(
-                {
-                    CONF_ROTATION_STRATEGY: user_input[CONF_ROTATION_STRATEGY],
-                    CONF_AUTO_FAILOVER: user_input[CONF_AUTO_FAILOVER],
-                    CONF_FAILOVER_ATTEMPTS: user_input[CONF_FAILOVER_ATTEMPTS],
-                    CONF_FAILOVER_COOLDOWN: user_input[CONF_FAILOVER_COOLDOWN],
-                    CONF_PROVIDER_LIMITS: {
-                        PROVIDER_GOOGLE: {
-                            "daily_request_limit": user_input[
-                                "google_daily_request_limit"
-                            ],
-                            "monthly_request_limit": user_input[
-                                "google_monthly_request_limit"
-                            ],
-                            "monthly_unit_limits": {
-                                "*": user_input["google_monthly_token_limit"]
-                            },
-                        },
-                        PROVIDER_AZURE: {
-                            "daily_request_limit": user_input[
-                                "azure_daily_request_limit"
-                            ],
-                            "monthly_request_limit": user_input[
-                                "azure_monthly_request_limit"
-                            ],
-                            "monthly_unit_limits": {
-                                "tts": user_input["azure_monthly_tts_character_limit"],
-                                "stt": user_input["azure_monthly_stt_seconds_limit"],
-                            },
-                        },
-                    },
-                }
-            )
+            self._working_options.update(user_input)
             return await self.async_step_init()
-
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_ROTATION_STRATEGY,
-                    default=self._working_options.get(
-                        CONF_ROTATION_STRATEGY, DEFAULT_ROTATION_STRATEGY
-                    ),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=list(ROTATION_STRATEGIES),
-                        translation_key=CONF_ROTATION_STRATEGY,
-                    )
-                ),
-                vol.Required(
-                    CONF_AUTO_FAILOVER,
-                    default=self._working_options.get(CONF_AUTO_FAILOVER, True),
-                ): bool,
-                vol.Required(
-                    CONF_FAILOVER_ATTEMPTS,
-                    default=self._working_options.get(
-                        CONF_FAILOVER_ATTEMPTS, DEFAULT_FAILOVER_ATTEMPTS
-                    ),
-                ): NumberSelector(NumberSelectorConfig(min=1, max=10, step=1)),
-                vol.Required(
-                    CONF_FAILOVER_COOLDOWN,
-                    default=self._working_options.get(
-                        CONF_FAILOVER_COOLDOWN, DEFAULT_FAILOVER_COOLDOWN
-                    ),
-                ): NumberSelector(NumberSelectorConfig(min=10, max=86400, step=10)),
-                vol.Optional(
-                    "google_daily_request_limit",
-                    default=google_limits.get("daily_request_limit", 0),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=1000000, step=1)),
-                vol.Optional(
-                    "google_monthly_request_limit",
-                    default=google_limits.get("monthly_request_limit", 0),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1)),
-                vol.Optional(
-                    "google_monthly_token_limit",
-                    default=google_units.get("*", 0),
-                ): NumberSelector(
-                    NumberSelectorConfig(min=0, max=1000000000, step=1000)
-                ),
-                vol.Optional(
-                    "azure_daily_request_limit",
-                    default=azure_limits.get("daily_request_limit", 0),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=1000000, step=1)),
-                vol.Optional(
-                    "azure_monthly_request_limit",
-                    default=azure_limits.get("monthly_request_limit", 0),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1)),
-                vol.Optional(
-                    "azure_monthly_tts_character_limit",
-                    default=azure_units.get("tts", 0),
-                ): NumberSelector(
-                    NumberSelectorConfig(min=0, max=1000000000, step=1000)
-                ),
-                vol.Optional(
-                    "azure_monthly_stt_seconds_limit",
-                    default=azure_units.get("stt", 0),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=100000000, step=60)),
-            }
+        return self.async_show_form(
+            step_id="general",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_AUTO_FAILOVER,
+                        default=self._working_options.get(CONF_AUTO_FAILOVER, True),
+                    ): bool,
+                    vol.Required(
+                        CONF_FAILOVER_ATTEMPTS,
+                        default=self._working_options.get(
+                            CONF_FAILOVER_ATTEMPTS, DEFAULT_FAILOVER_ATTEMPTS
+                        ),
+                    ): NumberSelector(NumberSelectorConfig(min=0, max=100, step=1)),
+                    vol.Required(
+                        CONF_FAILOVER_COOLDOWN,
+                        default=self._working_options.get(
+                            CONF_FAILOVER_COOLDOWN, DEFAULT_FAILOVER_COOLDOWN
+                        ),
+                    ): NumberSelector(NumberSelectorConfig(min=10, max=86400, step=10)),
+                }
+            ),
         )
-        return self.async_show_form(step_id="general", data_schema=schema)
 
-    async def async_step_add_google(self, user_input=None) -> ConfigFlowResult:
-        return await self._async_credential_form(PROVIDER_GOOGLE, user_input)
-
-    async def async_step_add_azure(self, user_input=None) -> ConfigFlowResult:
-        return await self._async_credential_form(PROVIDER_AZURE, user_input)
-
-    async def async_step_manage_credentials(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_provider_instances(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
-        if not self._credentials:
-            return self.async_abort(reason="no_credentials")
-        options = [
+        options = [SelectOptionDict(value="__add__", label="+ Provider")]
+        options.extend(
             SelectOptionDict(
                 value=item["id"],
-                label=f"{item.get('name', item['id'])} ({item.get('provider')})",
+                label=(
+                    f"{item.get('name', item['id'])} · {item.get('adapter')} "
+                    f"· P{item.get('priority', 100)} "
+                    f"· {'ON' if item.get('enabled', True) else 'OFF'}"
+                ),
             )
-            for item in self._credentials
-        ]
+            for item in self._provider_instances
+        )
         if user_input is not None:
-            self._editing_id = str(user_input[CONF_CREDENTIAL_ID])
-            if user_input[CONF_CREDENTIAL_ACTION] == "delete":
+            selected = str(user_input[CONF_PROVIDER_INSTANCE_ID])
+            if selected == "__add__":
+                return await self.async_step_add_provider()
+            self._editing_provider_id = selected
+            action = str(user_input[CONF_PROVIDER_ACTION])
+            if action == "credentials":
+                return await self.async_step_provider_credentials()
+            if action == "delete":
+                return await self.async_step_delete_provider()
+            return await self.async_step_edit_provider()
+        return self.async_show_form(
+            step_id="provider_instances",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PROVIDER_INSTANCE_ID): SelectSelector(
+                        SelectSelectorConfig(options=options)
+                    ),
+                    vol.Required(CONF_PROVIDER_ACTION, default="edit"): SelectSelector(
+                        SelectSelectorConfig(options=["edit", "credentials", "delete"])
+                    ),
+                }
+            ),
+            description_placeholders={
+                "provider_count": str(len(self._provider_instances))
+            },
+        )
+
+    async def async_step_add_provider(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        if user_input is not None:
+            adapter = str(user_input[CONF_PROVIDER_ADAPTER])
+            instance = {
+                "id": uuid4().hex,
+                "name": str(user_input[CONF_PROVIDER_INSTANCE_NAME]).strip(),
+                "adapter": adapter,
+                "enabled": True,
+                "priority": len(self._provider_instances) + 1,
+                "capabilities": list(self._ADAPTER_CAPABILITIES[adapter]),
+                "rotation_strategy": DEFAULT_ROTATION_STRATEGY,
+                "max_attempts": 0,
+                "cooldown_seconds": DEFAULT_FAILOVER_COOLDOWN,
+                "limits": {},
+                "credentials": [],
+            }
+            self._provider_instances.append(instance)
+            self._editing_provider_id = instance["id"]
+            return await self.async_step_edit_provider()
+        return self.async_show_form(
+            step_id="add_provider",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PROVIDER_INSTANCE_NAME): str,
+                    vol.Required(
+                        CONF_PROVIDER_ADAPTER, default=PROVIDER_GOOGLE
+                    ): SelectSelector(
+                        SelectSelectorConfig(options=[PROVIDER_GOOGLE, PROVIDER_AZURE])
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_edit_provider(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        current = self._provider()
+        adapter = str(current["adapter"])
+        allowed = set(self._ADAPTER_CAPABILITIES[adapter])
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            capabilities = {
+                str(item) for item in user_input[CONF_PROVIDER_CAPABILITIES]
+            }
+            if not capabilities or not capabilities.issubset(allowed):
+                errors[CONF_PROVIDER_CAPABILITIES] = "invalid_capabilities"
+            if not errors:
+                limits = {
+                    "daily_request_limit": int(user_input[CONF_DAILY_REQUEST_LIMIT]),
+                    "monthly_request_limit": int(
+                        user_input[CONF_MONTHLY_REQUEST_LIMIT]
+                    ),
+                    "monthly_unit_limits": (
+                        {"*": int(user_input[CONF_MONTHLY_TOKEN_LIMIT])}
+                        if adapter == PROVIDER_GOOGLE
+                        else {
+                            "tts": int(user_input[CONF_MONTHLY_TTS_CHARACTER_LIMIT]),
+                            "stt": int(user_input[CONF_MONTHLY_STT_SECONDS_LIMIT]),
+                        }
+                    ),
+                }
+                current.update(
+                    {
+                        "name": str(user_input[CONF_PROVIDER_INSTANCE_NAME]).strip(),
+                        "enabled": bool(user_input[CONF_ENABLED]),
+                        "priority": int(user_input[CONF_PRIORITY]),
+                        "capabilities": sorted(capabilities),
+                        "rotation_strategy": user_input[CONF_ROTATION_STRATEGY],
+                        "max_attempts": int(user_input[CONF_FAILOVER_ATTEMPTS]),
+                        "cooldown_seconds": int(user_input[CONF_FAILOVER_COOLDOWN]),
+                        "limits": limits,
+                    }
+                )
+                return await self.async_step_provider_instances()
+
+        limits = current.get("limits", {})
+        unit_limits = limits.get("monthly_unit_limits", {})
+        schema: dict[Any, Any] = {
+            vol.Required(
+                CONF_PROVIDER_INSTANCE_NAME, default=current.get("name", "Provider")
+            ): str,
+            vol.Required(CONF_ENABLED, default=current.get("enabled", True)): bool,
+            vol.Required(
+                CONF_PRIORITY, default=current.get("priority", 100)
+            ): NumberSelector(NumberSelectorConfig(min=1, max=1000, step=1)),
+            vol.Required(
+                CONF_PROVIDER_CAPABILITIES,
+                default=current.get("capabilities", list(allowed)),
+            ): SelectSelector(
+                SelectSelectorConfig(options=sorted(allowed), multiple=True)
+            ),
+            vol.Required(
+                CONF_ROTATION_STRATEGY,
+                default=current.get("rotation_strategy", DEFAULT_ROTATION_STRATEGY),
+            ): SelectSelector(SelectSelectorConfig(options=list(ROTATION_STRATEGIES))),
+            vol.Required(
+                CONF_FAILOVER_ATTEMPTS, default=current.get("max_attempts", 0)
+            ): NumberSelector(NumberSelectorConfig(min=0, max=100, step=1)),
+            vol.Required(
+                CONF_FAILOVER_COOLDOWN,
+                default=current.get("cooldown_seconds", DEFAULT_FAILOVER_COOLDOWN),
+            ): NumberSelector(NumberSelectorConfig(min=10, max=86400, step=10)),
+            vol.Optional(
+                CONF_DAILY_REQUEST_LIMIT,
+                default=limits.get("daily_request_limit", 0),
+            ): NumberSelector(NumberSelectorConfig(min=0, max=1000000, step=1)),
+            vol.Optional(
+                CONF_MONTHLY_REQUEST_LIMIT,
+                default=limits.get("monthly_request_limit", 0),
+            ): NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1)),
+        }
+        if adapter == PROVIDER_GOOGLE:
+            schema[
+                vol.Optional(CONF_MONTHLY_TOKEN_LIMIT, default=unit_limits.get("*", 0))
+            ] = NumberSelector(NumberSelectorConfig(min=0, max=1000000000, step=1000))
+        else:
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_MONTHLY_TTS_CHARACTER_LIMIT,
+                        default=unit_limits.get("tts", 0),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0, max=1000000000, step=1000)
+                    ),
+                    vol.Optional(
+                        CONF_MONTHLY_STT_SECONDS_LIMIT,
+                        default=unit_limits.get("stt", 0),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0, max=100000000, step=60)
+                    ),
+                }
+            )
+        return self.async_show_form(
+            step_id="edit_provider",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={"adapter": adapter},
+        )
+
+    async def async_step_delete_provider(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        current = self._provider()
+        if user_input is not None and user_input.get("confirm") is True:
+            self._provider_instances = [
+                item
+                for item in self._provider_instances
+                if item["id"] != self._editing_provider_id
+            ]
+            self._editing_provider_id = None
+            return await self.async_step_provider_instances()
+        return self.async_show_form(
+            step_id="delete_provider",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"provider_name": current.get("name", "")},
+        )
+
+    async def async_step_provider_credentials(
+        self, user_input=None
+    ) -> ConfigFlowResult:
+        self._ensure_state()
+        provider = self._provider()
+        credentials = provider.setdefault("credentials", [])
+        options = [SelectOptionDict(value="__add__", label="+ API key")]
+        options.extend(
+            SelectOptionDict(
+                value=item["id"],
+                label=(
+                    f"{item.get('name', item['id'])} · P{item.get('priority', 100)} "
+                    f"· {'ON' if item.get('enabled', True) else 'OFF'}"
+                ),
+            )
+            for item in credentials
+        )
+        if user_input is not None:
+            action = str(user_input[CONF_CREDENTIAL_ACTION])
+            if action == "back":
+                return await self.async_step_provider_instances()
+            selected = str(user_input[CONF_CREDENTIAL_ID])
+            if selected == "__add__":
+                return await self.async_step_add_credential()
+            self._editing_id = selected
+            if action == "delete":
                 return await self.async_step_delete_credential()
             return await self.async_step_edit_credential()
         return self.async_show_form(
-            step_id="manage_credentials",
+            step_id="provider_credentials",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_CREDENTIAL_ID): SelectSelector(
@@ -480,37 +632,34 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_CREDENTIAL_ACTION, default="edit"
                     ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=["edit", "delete"],
-                            translation_key=CONF_CREDENTIAL_ACTION,
-                        )
+                        SelectSelectorConfig(options=["edit", "delete", "back"])
                     ),
                 }
             ),
+            description_placeholders={
+                "provider_name": str(provider.get("name", "")),
+                "credential_count": str(len(credentials)),
+            },
         )
+
+    async def async_step_add_credential(self, user_input=None) -> ConfigFlowResult:
+        return await self._async_credential_form(user_input)
 
     async def async_step_edit_credential(self, user_input=None) -> ConfigFlowResult:
-        self._ensure_state()
-        current = next(
-            item for item in self._credentials if item["id"] == self._editing_id
-        )
-        return await self._async_credential_form(
-            str(current["provider"]), user_input, current=current
-        )
+        credentials = self._provider().setdefault("credentials", [])
+        current = next(item for item in credentials if item["id"] == self._editing_id)
+        return await self._async_credential_form(user_input, current=current)
 
-    async def async_step_delete_credential(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        self._ensure_state()
-        current = next(
-            item for item in self._credentials if item["id"] == self._editing_id
-        )
+    async def async_step_delete_credential(self, user_input=None) -> ConfigFlowResult:
+        provider = self._provider()
+        credentials = provider.setdefault("credentials", [])
+        current = next(item for item in credentials if item["id"] == self._editing_id)
         if user_input is not None and user_input.get("confirm") is True:
-            self._credentials = [
-                item for item in self._credentials if item["id"] != self._editing_id
+            provider["credentials"] = [
+                item for item in credentials if item["id"] != self._editing_id
             ]
             self._editing_id = None
-            return await self.async_step_init()
+            return await self.async_step_provider_credentials()
         return self.async_show_form(
             step_id="delete_credential",
             data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
@@ -518,13 +667,11 @@ class LunaAssistantOptionsFlow(OptionsFlow):
         )
 
     async def _async_credential_form(
-        self,
-        provider: str,
-        user_input: dict[str, Any] | None,
-        *,
-        current: dict[str, Any] | None = None,
+        self, user_input, *, current: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        self._ensure_state()
+        provider = self._provider()
+        adapter = str(provider["adapter"])
+        credentials = provider.setdefault("credentials", [])
         current = current or {}
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -534,26 +681,35 @@ class LunaAssistantOptionsFlow(OptionsFlow):
             region = str(user_input.get(CONF_AZURE_REGION, "")).strip().lower()
             if not secret:
                 errors[CONF_API_KEY] = "key_required"
-            if provider == PROVIDER_AZURE and not region:
+            if adapter == PROVIDER_AZURE and not region:
                 errors[CONF_AZURE_REGION] = "azure_region_required"
+            duplicate = any(
+                item.get("id") != current.get("id")
+                and str(item.get("api_key", "")).strip() == secret
+                and (
+                    adapter == PROVIDER_GOOGLE
+                    or str(item.get("region", "")).strip().lower() == region
+                )
+                for item in credentials
+            )
+            if secret and duplicate:
+                errors[CONF_API_KEY] = "duplicate_credential"
             if not errors:
                 try:
-                    if provider == PROVIDER_GOOGLE:
+                    if adapter == PROVIDER_GOOGLE:
                         await validate_input(self.hass, {CONF_API_KEY: secret})
                     else:
-                        await self.config_entry.runtime_data.providers.azure.async_validate(
-                            key=secret, region=region
-                        )
+                        azure = self.config_entry.runtime_data.providers.azure
+                        await azure.async_validate(key=secret, region=region)
                 except (APIError, ProviderError, Timeout):
                     errors["base"] = "invalid_auth"
             if not errors:
                 item = {
                     "id": current.get("id", uuid4().hex),
-                    "provider": provider,
                     "name": user_input[CONF_CREDENTIAL_NAME],
                     "api_key": secret,
-                    "region": region if provider == PROVIDER_AZURE else None,
-                    "enabled": user_input[CONF_ENABLED],
+                    "region": region if adapter == PROVIDER_AZURE else None,
+                    "enabled": bool(user_input[CONF_ENABLED]),
                     "priority": int(user_input[CONF_PRIORITY]),
                     "daily_request_limit": int(user_input[CONF_DAILY_REQUEST_LIMIT]),
                     "monthly_request_limit": int(
@@ -561,27 +717,27 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                     ),
                     "monthly_unit_limits": (
                         {"*": int(user_input[CONF_MONTHLY_TOKEN_LIMIT])}
-                        if provider == PROVIDER_GOOGLE
+                        if adapter == PROVIDER_GOOGLE
                         else {
                             "tts": int(user_input[CONF_MONTHLY_TTS_CHARACTER_LIMIT]),
                             "stt": int(user_input[CONF_MONTHLY_STT_SECONDS_LIMIT]),
                         }
                     ),
                 }
-                self._credentials = [
+                provider["credentials"] = [
                     existing
-                    for existing in self._credentials
+                    for existing in credentials
                     if existing.get("id") != item["id"]
                 ] + [item]
                 self._editing_id = None
-                return await self.async_step_init()
+                return await self.async_step_provider_credentials()
 
+        limits = current.get("monthly_unit_limits", {})
         schema: dict[Any, Any] = {
             vol.Required(
                 CONF_CREDENTIAL_NAME,
                 default=current.get(
-                    "name",
-                    "Google" if provider == PROVIDER_GOOGLE else "Azure",
+                    "name", "Google key" if adapter == PROVIDER_GOOGLE else "Azure key"
                 ),
             ): str,
             vol.Optional(CONF_API_KEY): TextSelector(
@@ -600,8 +756,7 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                 default=current.get("monthly_request_limit", 0),
             ): NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1)),
         }
-        limits = current.get("monthly_unit_limits", {})
-        if provider == PROVIDER_GOOGLE:
+        if adapter == PROVIDER_GOOGLE:
             schema[
                 vol.Optional(CONF_MONTHLY_TOKEN_LIMIT, default=limits.get("*", 0))
             ] = NumberSelector(NumberSelectorConfig(min=0, max=1000000000, step=1000))
@@ -610,8 +765,7 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                 {
                     vol.Required(
                         CONF_AZURE_REGION,
-                        default=current.get(CONF_AZURE_REGION)
-                        or current.get("region", DEFAULT_AZURE_REGION),
+                        default=current.get("region", DEFAULT_AZURE_REGION),
                     ): str,
                     vol.Optional(
                         CONF_MONTHLY_TTS_CHARACTER_LIMIT,
@@ -628,24 +782,578 @@ class LunaAssistantOptionsFlow(OptionsFlow):
                 }
             )
         return self.async_show_form(
-            step_id="edit_credential" if current else f"add_{provider}",
+            step_id="edit_credential" if current else "add_credential",
             data_schema=vol.Schema(schema),
             errors=errors,
+            description_placeholders={"provider_name": provider.get("name", "")},
         )
 
     async def async_step_save(self, user_input=None) -> ConfigFlowResult:
         self._ensure_state()
-        if not any(
-            item.get("provider") == PROVIDER_GOOGLE and item.get("enabled", True)
-            for item in self._credentials
-        ):
+        has_google = any(
+            instance.get("adapter") == PROVIDER_GOOGLE
+            and instance.get("enabled", True)
+            and any(
+                credential.get("enabled", True)
+                and str(credential.get("api_key", "")).strip()
+                for credential in instance.get("credentials", [])
+            )
+            for instance in self._provider_instances
+        )
+        if not has_google:
             return await self.async_step_google_required()
-        self._working_options[CONF_CREDENTIALS] = self._credentials
+        self._working_options[CONF_PROVIDER_INSTANCES] = self._provider_instances
+        self._working_options.pop(CONF_CREDENTIALS, None)
+        self._working_options.pop(CONF_PROVIDER_LIMITS, None)
         return self.async_create_entry(title="", data=self._working_options)
 
-    async def async_step_google_required(
-        self, user_input: dict[str, Any] | None = None
+    async def async_step_google_required(self, user_input=None) -> ConfigFlowResult:
+        if user_input is not None:
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="google_required", data_schema=vol.Schema({})
+        )
+
+
+class LunaAssistantOptionsFlow(OptionsFlow):
+    """Manage one provider per technology, ordered routes and Search feedback."""
+
+    def _ensure_state(self) -> None:
+        if hasattr(self, "_working_options"):
+            return
+        self._working_options = dict(self.config_entry.options)
+        self._providers = providers_from_entry(self.config_entry)
+        self._routes = routes_from_entry(self.config_entry)
+        self._editing_provider = PROVIDER_GOOGLE
+        self._editing_id: str | None = None
+
+    def _provider(self) -> dict[str, Any]:
+        return self._providers[self._editing_provider]
+
+    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=[
+                "general",
+                "providers",
+                "routes",
+                "latency_feedback",
+                "generate_latency_audio",
+                "preview_latency_audio",
+                "save",
+            ],
+        )
+
+    async def async_step_general(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        if user_input is not None:
+            self._working_options.update(user_input)
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="general",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SEARCH_ENABLED,
+                        default=self._working_options.get(
+                            CONF_SEARCH_ENABLED, DEFAULT_SEARCH_ENABLED
+                        ),
+                    ): bool,
+                    vol.Required(
+                        CONF_AUTO_FAILOVER,
+                        default=self._working_options.get(CONF_AUTO_FAILOVER, True),
+                    ): bool,
+                    vol.Required(
+                        CONF_FAILOVER_ATTEMPTS,
+                        default=self._working_options.get(
+                            CONF_FAILOVER_ATTEMPTS, DEFAULT_FAILOVER_ATTEMPTS
+                        ),
+                    ): NumberSelector(NumberSelectorConfig(min=0, max=100, step=1)),
+                    vol.Required(
+                        CONF_FAILOVER_COOLDOWN,
+                        default=self._working_options.get(
+                            CONF_FAILOVER_COOLDOWN, DEFAULT_FAILOVER_COOLDOWN
+                        ),
+                    ): NumberSelector(NumberSelectorConfig(min=10, max=86400, step=10)),
+                }
+            ),
+        )
+
+    async def async_step_providers(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        if user_input is not None:
+            self._editing_provider = str(user_input[CONF_PROVIDER])
+            if user_input[CONF_PROVIDER_ACTION] == "credentials":
+                return await self.async_step_provider_credentials()
+            return await self.async_step_provider_settings()
+        options = [
+            SelectOptionDict(
+                value=provider,
+                label=(
+                    f"{PROVIDER_DISPLAY_NAMES[provider]} · "
+                    f"{len(self._providers[provider].get('credentials', []))} key(s)"
+                ),
+            )
+            for provider in (PROVIDER_GOOGLE, PROVIDER_AZURE, PROVIDER_TAVILY)
+        ]
+        return self.async_show_form(
+            step_id="providers",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PROVIDER): SelectSelector(
+                        SelectSelectorConfig(options=options)
+                    ),
+                    vol.Required(
+                        CONF_PROVIDER_ACTION, default="settings"
+                    ): SelectSelector(
+                        SelectSelectorConfig(options=["settings", "credentials"])
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_provider_settings(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        provider = self._editing_provider
+        current = self._provider()
+        allowed = set(PROVIDER_CAPABILITIES[provider])
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            capabilities = {
+                str(item) for item in user_input[CONF_PROVIDER_CAPABILITIES]
+            }
+            if not capabilities.issubset(allowed):
+                errors[CONF_PROVIDER_CAPABILITIES] = "invalid_capabilities"
+            elif not capabilities:
+                errors[CONF_PROVIDER_CAPABILITIES] = "invalid_capabilities"
+            if not errors:
+                units: dict[str, int] = {}
+                if provider == PROVIDER_GOOGLE:
+                    units["*"] = int(user_input[CONF_MONTHLY_TOKEN_LIMIT])
+                elif provider == PROVIDER_AZURE:
+                    units["tts"] = int(user_input[CONF_MONTHLY_TTS_CHARACTER_LIMIT])
+                    units["stt"] = int(user_input[CONF_MONTHLY_STT_SECONDS_LIMIT])
+                else:
+                    units["search"] = int(user_input[CONF_MONTHLY_SEARCH_CREDIT_LIMIT])
+                    self._working_options.update(
+                        {
+                            CONF_TAVILY_SEARCH_DEPTH: str(
+                                user_input[CONF_TAVILY_SEARCH_DEPTH]
+                            ),
+                            CONF_TAVILY_MAX_RESULTS: int(
+                                user_input[CONF_TAVILY_MAX_RESULTS]
+                            ),
+                        }
+                    )
+                current.update(
+                    {
+                        "enabled": bool(user_input[CONF_ENABLED]),
+                        "capabilities": sorted(capabilities),
+                        "rotation_strategy": str(user_input[CONF_ROTATION_STRATEGY]),
+                        "max_attempts": int(user_input[CONF_FAILOVER_ATTEMPTS]),
+                        "cooldown_seconds": int(user_input[CONF_FAILOVER_COOLDOWN]),
+                        "limits": {
+                            "daily_request_limit": int(
+                                user_input[CONF_DAILY_REQUEST_LIMIT]
+                            ),
+                            "monthly_request_limit": int(
+                                user_input[CONF_MONTHLY_REQUEST_LIMIT]
+                            ),
+                            "monthly_unit_limits": units,
+                        },
+                    }
+                )
+                return await self.async_step_providers()
+
+        limits = current.get("limits", {})
+        units = limits.get("monthly_unit_limits", {})
+        schema: dict[Any, Any] = {
+            vol.Required(CONF_ENABLED, default=current.get("enabled", True)): bool,
+            vol.Required(
+                CONF_PROVIDER_CAPABILITIES,
+                default=current.get("capabilities", sorted(allowed)),
+            ): SelectSelector(
+                SelectSelectorConfig(options=sorted(allowed), multiple=True)
+            ),
+            vol.Required(
+                CONF_ROTATION_STRATEGY,
+                default=current.get("rotation_strategy", DEFAULT_ROTATION_STRATEGY),
+            ): SelectSelector(SelectSelectorConfig(options=list(ROTATION_STRATEGIES))),
+            vol.Required(
+                CONF_FAILOVER_ATTEMPTS, default=current.get("max_attempts", 0)
+            ): NumberSelector(NumberSelectorConfig(min=0, max=100, step=1)),
+            vol.Required(
+                CONF_FAILOVER_COOLDOWN,
+                default=current.get("cooldown_seconds", DEFAULT_FAILOVER_COOLDOWN),
+            ): NumberSelector(NumberSelectorConfig(min=10, max=86400, step=10)),
+            vol.Optional(
+                CONF_DAILY_REQUEST_LIMIT,
+                default=limits.get("daily_request_limit", 0),
+            ): NumberSelector(NumberSelectorConfig(min=0, max=1000000, step=1)),
+            vol.Optional(
+                CONF_MONTHLY_REQUEST_LIMIT,
+                default=limits.get("monthly_request_limit", 0),
+            ): NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1)),
+        }
+        if provider == PROVIDER_GOOGLE:
+            schema[
+                vol.Optional(CONF_MONTHLY_TOKEN_LIMIT, default=units.get("*", 0))
+            ] = NumberSelector(NumberSelectorConfig(min=0, max=1000000000, step=1000))
+        elif provider == PROVIDER_AZURE:
+            schema[
+                vol.Optional(
+                    CONF_MONTHLY_TTS_CHARACTER_LIMIT,
+                    default=units.get("tts", 0),
+                )
+            ] = NumberSelector(NumberSelectorConfig(min=0, max=1000000000, step=1000))
+            schema[
+                vol.Optional(
+                    CONF_MONTHLY_STT_SECONDS_LIMIT,
+                    default=units.get("stt", 0),
+                )
+            ] = NumberSelector(NumberSelectorConfig(min=0, max=100000000, step=60))
+        else:
+            schema[
+                vol.Optional(
+                    CONF_MONTHLY_SEARCH_CREDIT_LIMIT,
+                    default=units.get("search", 0),
+                )
+            ] = NumberSelector(NumberSelectorConfig(min=0, max=10000000, step=1))
+            schema[
+                vol.Required(
+                    CONF_TAVILY_SEARCH_DEPTH,
+                    default=self._working_options.get(
+                        CONF_TAVILY_SEARCH_DEPTH, DEFAULT_TAVILY_SEARCH_DEPTH
+                    ),
+                )
+            ] = SelectSelector(SelectSelectorConfig(options=["basic", "advanced"]))
+            schema[
+                vol.Required(
+                    CONF_TAVILY_MAX_RESULTS,
+                    default=self._working_options.get(
+                        CONF_TAVILY_MAX_RESULTS, DEFAULT_TAVILY_MAX_RESULTS
+                    ),
+                )
+            ] = NumberSelector(NumberSelectorConfig(min=1, max=10, step=1))
+        return self.async_show_form(
+            step_id="provider_settings",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={
+                "provider_name": PROVIDER_DISPLAY_NAMES[provider]
+            },
+        )
+
+    async def async_step_provider_credentials(
+        self, user_input=None
     ) -> ConfigFlowResult:
+        self._ensure_state()
+        credentials = self._provider().setdefault("credentials", [])
+        options = [SelectOptionDict(value="__add__", label="+ API key")]
+        options.extend(
+            SelectOptionDict(
+                value=item["id"],
+                label=(
+                    f"{item.get('name', item['id'])} · "
+                    f"{'ON' if item.get('enabled', True) else 'OFF'}"
+                ),
+            )
+            for item in credentials
+        )
+        if user_input is not None:
+            action = str(user_input[CONF_CREDENTIAL_ACTION])
+            if action == "back":
+                return await self.async_step_providers()
+            selected = str(user_input[CONF_CREDENTIAL_ID])
+            if selected == "__add__":
+                return await self.async_step_add_credential()
+            self._editing_id = selected
+            if action == "delete":
+                return await self.async_step_delete_credential()
+            return await self.async_step_edit_credential()
+        return self.async_show_form(
+            step_id="provider_credentials",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CREDENTIAL_ID): SelectSelector(
+                        SelectSelectorConfig(options=options)
+                    ),
+                    vol.Required(
+                        CONF_CREDENTIAL_ACTION, default="edit"
+                    ): SelectSelector(
+                        SelectSelectorConfig(options=["edit", "delete", "back"])
+                    ),
+                }
+            ),
+            description_placeholders={
+                "provider_name": PROVIDER_DISPLAY_NAMES[self._editing_provider],
+                "credential_count": str(len(credentials)),
+            },
+        )
+
+    async def async_step_add_credential(self, user_input=None) -> ConfigFlowResult:
+        return await self._async_credential_form(user_input)
+
+    async def async_step_edit_credential(self, user_input=None) -> ConfigFlowResult:
+        current = next(
+            item
+            for item in self._provider().setdefault("credentials", [])
+            if item["id"] == self._editing_id
+        )
+        return await self._async_credential_form(user_input, current=current)
+
+    async def async_step_delete_credential(self, user_input=None) -> ConfigFlowResult:
+        credentials = self._provider().setdefault("credentials", [])
+        current = next(item for item in credentials if item["id"] == self._editing_id)
+        if user_input is not None and user_input.get("confirm") is True:
+            self._provider()["credentials"] = [
+                item for item in credentials if item["id"] != self._editing_id
+            ]
+            self._editing_id = None
+            return await self.async_step_provider_credentials()
+        return self.async_show_form(
+            step_id="delete_credential",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"credential_name": current.get("name", "")},
+        )
+
+    async def _async_credential_form(
+        self, user_input: dict[str, Any] | None, *, current=None
+    ) -> ConfigFlowResult:
+        credentials = self._provider().setdefault("credentials", [])
+        current = current or {}
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            secret = str(user_input.get(CONF_API_KEY, "")).strip() or str(
+                current.get("api_key", "")
+            )
+            region = (
+                str(user_input.get(CONF_AZURE_REGION, "")).strip().lower()
+                if self._editing_provider == PROVIDER_AZURE
+                else ""
+            )
+            if not secret:
+                errors[CONF_API_KEY] = "key_required"
+            elif any(
+                item.get("id") != current.get("id")
+                and str(item.get("api_key", "")).strip() == secret
+                and str(item.get("region", "")).strip().lower() == region
+                for item in credentials
+            ):
+                errors["base"] = "duplicate_credential"
+            if not errors:
+                saved = {
+                    "id": current.get("id", uuid4().hex),
+                    "name": str(user_input[CONF_CREDENTIAL_NAME]).strip(),
+                    "api_key": secret,
+                    "enabled": bool(user_input[CONF_ENABLED]),
+                    "priority": int(current.get("priority", len(credentials) + 1)),
+                }
+                if self._editing_provider == PROVIDER_AZURE:
+                    saved["region"] = region
+                if current:
+                    self._provider()["credentials"] = [
+                        saved if item["id"] == current["id"] else item
+                        for item in credentials
+                    ]
+                else:
+                    credentials.append(saved)
+                return await self.async_step_provider_credentials()
+
+        schema: dict[Any, Any] = {
+            vol.Required(
+                CONF_CREDENTIAL_NAME,
+                default=current.get(
+                    "name", f"{PROVIDER_DISPLAY_NAMES[self._editing_provider]} key"
+                ),
+            ): str,
+            vol.Optional(CONF_API_KEY): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+            vol.Required(CONF_ENABLED, default=current.get("enabled", True)): bool,
+        }
+        if self._editing_provider == PROVIDER_AZURE:
+            schema[
+                vol.Required(
+                    CONF_AZURE_REGION,
+                    default=current.get("region", DEFAULT_AZURE_REGION),
+                )
+            ] = str
+        return self.async_show_form(
+            step_id="edit_credential" if current else "add_credential",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={
+                "provider_name": PROVIDER_DISPLAY_NAMES[self._editing_provider]
+            },
+        )
+
+    @staticmethod
+    def _parse_route(value: str) -> list[str]:
+        route: list[str] = []
+        for item in str(value).replace("→", ",").split(","):
+            provider = item.strip().lower()
+            if provider and provider not in route:
+                route.append(provider)
+        return route
+
+    async def async_step_routes(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        fields = {
+            "route_ai_task": "ai_task",
+            "route_conversation": "conversation",
+            "route_stt": "stt",
+            "route_tts": "tts",
+            "route_search": "search",
+            "route_image": "image",
+        }
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            parsed = {
+                capability: self._parse_route(user_input[field])
+                for field, capability in fields.items()
+            }
+            for field, capability in fields.items():
+                route = parsed[capability]
+                if not route and not (
+                    capability == "search"
+                    and not self._working_options.get(
+                        CONF_SEARCH_ENABLED, DEFAULT_SEARCH_ENABLED
+                    )
+                ):
+                    errors[field] = "route_required"
+                    continue
+                if any(
+                    provider not in PROVIDER_CAPABILITIES
+                    or capability not in PROVIDER_CAPABILITIES[provider]
+                    for provider in route
+                ):
+                    errors[field] = "invalid_route"
+            if not errors:
+                self._routes.update(parsed)
+                return await self.async_step_init()
+        return self.async_show_form(
+            step_id="routes",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        field, default=", ".join(self._routes.get(capability, []))
+                    ): str
+                    for field, capability in fields.items()
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_latency_feedback(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        if user_input is not None:
+            phrases = []
+            for value in str(user_input[CONF_LATENCY_PHRASES]).splitlines():
+                phrase = value.strip()
+                if phrase and phrase not in phrases:
+                    phrases.append(phrase)
+            self._working_options.update(
+                {
+                    CONF_LATENCY_FEEDBACK_ENABLED: bool(
+                        user_input[CONF_LATENCY_FEEDBACK_ENABLED]
+                    ),
+                    CONF_LATENCY_FEEDBACK_DELAY_MS: int(
+                        user_input[CONF_LATENCY_FEEDBACK_DELAY_MS]
+                    ),
+                    CONF_LATENCY_PHRASES: phrases or list(DEFAULT_LATENCY_PHRASES),
+                }
+            )
+            return await self.async_step_init()
+        configured_phrases = self._working_options.get(
+            CONF_LATENCY_PHRASES, DEFAULT_LATENCY_PHRASES
+        )
+        if not isinstance(configured_phrases, str):
+            configured_phrases = "\n".join(configured_phrases)
+        return self.async_show_form(
+            step_id="latency_feedback",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_LATENCY_FEEDBACK_ENABLED,
+                        default=self._working_options.get(
+                            CONF_LATENCY_FEEDBACK_ENABLED, True
+                        ),
+                    ): bool,
+                    vol.Required(
+                        CONF_LATENCY_FEEDBACK_DELAY_MS,
+                        default=self._working_options.get(
+                            CONF_LATENCY_FEEDBACK_DELAY_MS,
+                            DEFAULT_LATENCY_FEEDBACK_DELAY_MS,
+                        ),
+                    ): NumberSelector(NumberSelectorConfig(min=0, max=10000, step=100)),
+                    vol.Required(
+                        CONF_LATENCY_PHRASES, default=configured_phrases
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
+                }
+            ),
+        )
+
+    async def async_step_generate_latency_audio(
+        self, user_input=None
+    ) -> ConfigFlowResult:
+        """Generate/update button for the currently saved phrase list."""
+        if user_input is not None:
+            return await self.async_step_init()
+        result = await self.config_entry.runtime_data.feedback.async_generate()
+        return self.async_show_form(
+            step_id="generate_latency_audio",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "generated": str(result["generated"]),
+                "skipped": str(result["skipped"]),
+                "failed": str(result["failed"]),
+            },
+        )
+
+    async def async_step_preview_latency_audio(
+        self, user_input=None
+    ) -> ConfigFlowResult:
+        """Preview one generated phrase from the options UI."""
+        feedback = self.config_entry.runtime_data.feedback
+        if user_input is not None:
+            await feedback.async_play_phrase(
+                str(user_input[CONF_LATENCY_PHRASES]),
+                str(user_input[CONF_OUTPUT_MEDIA_PLAYER]),
+            )
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="preview_latency_audio",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_LATENCY_PHRASES): SelectSelector(
+                        SelectSelectorConfig(options=list(feedback.phrases))
+                    ),
+                    vol.Required(CONF_OUTPUT_MEDIA_PLAYER): EntitySelector(
+                        EntitySelectorConfig(domain="media_player")
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_save(self, user_input=None) -> ConfigFlowResult:
+        self._ensure_state()
+        google = self._providers[PROVIDER_GOOGLE]
+        has_google = google.get("enabled", True) and any(
+            credential.get("enabled", True)
+            and str(credential.get("api_key", "")).strip()
+            for credential in google.get("credentials", [])
+        )
+        if not has_google:
+            return await self.async_step_google_required()
+        self._working_options[CONF_PROVIDERS] = self._providers
+        self._working_options[CONF_ROUTES] = self._routes
+        for legacy in (CONF_PROVIDER_INSTANCES, CONF_CREDENTIALS, CONF_PROVIDER_LIMITS):
+            self._working_options.pop(legacy, None)
+        return self.async_create_entry(title="", data=self._working_options)
+
+    async def async_step_google_required(self, user_input=None) -> ConfigFlowResult:
         if user_input is not None:
             return await self.async_step_init()
         return self.async_show_form(
@@ -818,24 +1526,15 @@ async def google_generative_ai_config_option_schema(
     else:
         schema = {}
 
-    provider = str(options.get(CONF_PROVIDER, DEFAULT_PROVIDER))
     capability = {
         "conversation": ProviderCapability.CONVERSATION,
         "stt": ProviderCapability.STT,
         "tts": ProviderCapability.TTS,
         "ai_task_data": ProviderCapability.AI_TASK,
     }[subentry_type]
-    schema.update(
-        {
-            vol.Required(CONF_PROVIDER, default=provider): SelectSelector(
-                SelectSelectorConfig(
-                    mode=SelectSelectorMode.DROPDOWN,
-                    options=provider_hub.available_providers(capability),
-                    translation_key=CONF_PROVIDER,
-                )
-            )
-        }
-    )
+    route = provider_hub.credentials.route_for(capability)
+    has_google = PROVIDER_GOOGLE in route
+    has_azure = PROVIDER_AZURE in route
 
     if subentry_type == "conversation":
         schema.update(
@@ -929,7 +1628,7 @@ async def google_generative_ai_config_option_schema(
                 ): TemplateSelector(),
             }
         )
-        if provider == PROVIDER_AZURE:
+        if has_azure:
             schema.update(
                 {
                     vol.Optional(
@@ -985,7 +1684,7 @@ async def google_generative_ai_config_option_schema(
                 ),
             }
         )
-        if provider == PROVIDER_AZURE:
+        if has_azure:
             schema.update(
                 {
                     vol.Required(
@@ -1026,7 +1725,7 @@ async def google_generative_ai_config_option_schema(
     if options.get(CONF_RECOMMENDED):
         return schema
 
-    if provider == PROVIDER_AZURE:
+    if not has_google:
         return schema
 
     api_models_pager = await genai_client.aio.models.list(config={"query_base": True})
@@ -1173,17 +1872,4 @@ async def google_generative_ai_config_option_schema(
                 ): harm_block_thresholds_selector,
             }
         )
-    if subentry_type == "conversation":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_USE_GOOGLE_SEARCH_TOOL,
-                    description={
-                        "suggested_value": options.get(CONF_USE_GOOGLE_SEARCH_TOOL),
-                    },
-                    default=RECOMMENDED_USE_GOOGLE_SEARCH_TOOL,
-                ): bool,
-            }
-        )
-
     return schema

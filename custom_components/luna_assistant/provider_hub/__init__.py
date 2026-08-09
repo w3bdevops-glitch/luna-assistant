@@ -2,7 +2,7 @@
 
 from .base import LunaProviderAdapter
 from .hub import LunaProviderHub
-from .models import AudioResult, ProviderCapability, ProviderError
+from .models import AudioResult, ProviderCapability, ProviderError, SearchResult
 
 __all__ = [
     "AudioResult",
@@ -10,4 +10,5 @@ __all__ = [
     "LunaProviderHub",
     "ProviderCapability",
     "ProviderError",
+    "SearchResult",
 ]

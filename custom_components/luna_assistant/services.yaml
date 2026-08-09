@@ -1,3 +1,23 @@
 interrupt_external_audio:
   name: Interromper áudio externo
   description: Interrompe imediatamente o Google Nest ou media player configurado como saída de voz da Luna.
+
+generate_latency_phrases:
+  name: Gerar frases de espera
+  description: Gera ou atualiza somente os áudios pendentes e desatualizados usados durante pesquisas.
+
+preview_latency_phrase:
+  name: Ouvir frase de espera
+  description: Reproduz uma frase de espera já gerada no media player selecionado.
+  fields:
+    phrase:
+      name: Frase
+      required: true
+      selector:
+        text:
+    media_player:
+      name: Media player
+      required: true
+      selector:
+        entity:
+          domain: media_player

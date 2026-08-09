@@ -72,14 +72,16 @@ class GoogleGeminiProvider(LunaProviderAdapter):
         capability: ProviderCapability,
         operation: str,
         callback: Callable[[Client], Awaitable[_Outcome]],
+        provider_instance: str | None = None,
     ) -> T:
+        provider_instance = self.name
         excluded: set[str] = set()
         last_error: ProviderError | None = None
-        attempts = self._credentials.failover_attempts
+        attempts = self._credentials.provider_attempts(self.name)
         for attempt in range(attempts):
             try:
                 lease = await self._credentials.async_acquire(
-                    self.name,
+                    provider_instance,
                     capability,
                     excluded=excluded,
                     failover=attempt > 0,
@@ -124,7 +126,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
                 )
                 self._metrics.record(
                     service=capability.value,
-                    provider=self.name,
+                    provider=provider_instance,
                     operation=operation,
                     started=started,
                     success=True,
@@ -138,7 +140,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             await self._credentials.async_fail(lease, last_error)
             self._metrics.record(
                 service=capability.value,
-                provider=self.name,
+                provider=provider_instance,
                 operation=operation,
                 started=started,
                 success=False,
@@ -166,6 +168,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
         default_max_tokens: int | None = None,
         max_iterations: int = 10,
         capability: ProviderCapability = ProviderCapability.CONVERSATION,
+        provider_instance: str | None = None,
     ) -> None:
         """Run one chat turn with a reserved Gemini key."""
 
@@ -190,10 +193,14 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             capability=capability,
             operation="generate",
             callback=request,
+            provider_instance=provider_instance,
         )
 
     async def async_generate_image(
-        self, callback: Callable[[Client], Awaitable[Any]]
+        self,
+        callback: Callable[[Client], Awaitable[Any]],
+        *,
+        provider_instance: str | None = None,
     ) -> Any:
         """Run an image AI Task through the same key/budget controller."""
 
@@ -210,6 +217,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             capability=ProviderCapability.IMAGE,
             operation="generate_image",
             callback=request,
+            provider_instance=provider_instance,
         )
 
     async def async_transcribe(
@@ -220,6 +228,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
         prompt: str,
         model: str,
         config: GenerateContentConfig,
+        provider_instance: str | None = None,
         **_kwargs,
     ) -> str:
         async def request(client: Client) -> _Outcome:
@@ -246,6 +255,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             capability=ProviderCapability.STT,
             operation="transcribe",
             callback=request,
+            provider_instance=provider_instance,
         )
 
     async def async_synthesize(
@@ -256,6 +266,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
         voice: str,
         temperature: float,
         style_prompt: str,
+        provider_instance: str | None = None,
         **_kwargs,
     ) -> AudioResult:
         async def request(client: Client) -> _Outcome:
@@ -313,7 +324,7 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             info = validate_wav(wav)
             usage = response.usage_metadata
             result = AudioResult(
-                provider=self.name,
+                provider=provider_instance or self.name,
                 format="wav",
                 data=wav,
                 sample_rate=info.sample_rate,
@@ -331,4 +342,5 @@ class GoogleGeminiProvider(LunaProviderAdapter):
             capability=ProviderCapability.TTS,
             operation="synthesize",
             callback=request,
+            provider_instance=provider_instance,
         )

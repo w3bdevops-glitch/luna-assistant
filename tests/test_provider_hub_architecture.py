@@ -9,6 +9,7 @@ HUB = (ROOT / "provider_hub/hub.py").read_text(encoding="utf-8")
 ENTITY = (ROOT / "entity.py").read_text(encoding="utf-8")
 GOOGLE = (ROOT / "provider_hub/google.py").read_text(encoding="utf-8")
 AZURE = (ROOT / "provider_hub/azure.py").read_text(encoding="utf-8")
+TAVILY = (ROOT / "provider_hub/tavily.py").read_text(encoding="utf-8")
 
 assert "class LunaProviderAdapter(ABC)" in BASE
 assert "async def async_handle_chat_log" in BASE
@@ -19,11 +20,14 @@ assert "def register" in REGISTRY
 assert "def providers_for" in REGISTRY
 assert "self._registry.register(self.google)" in HUB
 assert "self._registry.register(self.azure)" in HUB
+assert "self._registry.register(self.tavily)" in HUB
 assert "available_providers" in HUB
 assert "async_handle_chat_log" in HUB
 assert "class GoogleGeminiProvider(LunaProviderAdapter)" in GOOGLE
 assert "class AzureSpeechProvider(LunaProviderAdapter)" in AZURE
 assert "ProviderCapability.STT" in AZURE
+assert "class TavilySearchProvider(LunaProviderAdapter)" in TAVILY
+assert "ProviderCapability.SEARCH" in TAVILY
 assert "await self._provider_hub.async_handle_chat_log" in ENTITY
 
 print("Luna Provider Hub plug-in architecture validation passed.")

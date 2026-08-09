@@ -1,108 +1,119 @@
-# Luna Assistant Prime v1.1.0
+# Luna Assistant Prime v1.2.0
 
-Integração personalizada para o Home Assistant 2026.7 que fornece serviços de
-IA ao Assist Pipeline sem substituir sua orquestração nativa.
+Integração personalizada para o Home Assistant 2026.7 que fornece IA ao
+Assist Pipeline sem substituir sua orquestração nativa.
+
+## O que há de novo
+
+- Providers são tecnologias únicas: **Google Gemini**, **Microsoft Azure
+  Speech** e **Tavily Search**. As API keys pertencem ao provider e não criam
+  providers duplicados.
+- Rotas centrais e ordenadas por capacidade: AI Task, Conversation, STT, TTS,
+  Search e Image.
+- Quantidade livre de credenciais em cada provider, com rotação pela maior
+  estimativa de saldo ou por round-robin.
+- Failover entre chaves e providers compatíveis, cooldown individual e limite
+  total de tentativas por operação.
+- Limites locais diários/mensais e medição persistente de chamadas e unidades.
+- Tavily como ferramenta nativa de pesquisa para AI Task e Conversation.
+- Chave geral **Habilitar pesquisa na internet**, ligada por padrão.
+- Cinco frases de feedback para mascarar a latência da pesquisa, com geração
+  antecipada pela rota TTS, cache, reprodução aleatória e pré-visualização.
+- Migração automática das configurações e credenciais das versões anteriores.
 
 ## Arquitetura preservada
 
-- **Luna Satellite / ESPHome**: hardware, wake word, botões, I²S, estados e
-  experiência de voz no Atom.
-- **Home Assistant Assist**: orquestra `STT → Conversation → TTS`.
-- **Luna Assistant Prime**: entidades de IA, personalidade, ferramentas,
-  provedores e roteamento de áudio externo.
+- **Luna Satellite / ESPHome** continua responsável por hardware, wake word,
+  botões, I²S e estados físicos do Atom.
+- **Home Assistant Assist** continua orquestrando `STT → Conversation → TTS`.
+- **Luna Assistant Prime** fornece entidades, personalidade, ferramentas,
+  providers, rotas, métricas e áudio externo.
 
-Luna Core não controla microfone, wake word, sessão do Satellite nem barramento
-I²S.
+Luna Core não assume o microfone, a sessão do Satellite nem o barramento I²S.
 
-## Entregue na Prime v1.1
+## Matriz de providers
 
-### Luna Core
+| Provider | AI Task | Conversation | STT | TTS | Search | Image |
+|---|---:|---:|---:|---:|---:|---:|
+| Google Gemini | Sim | Sim | Sim | Sim | Não | Sim |
+| Microsoft Azure Speech | Não | Não | Sim | Sim | Não | Não |
+| Tavily | Não | Não | Não | Não | Sim | Não |
 
-Raiz de execução interna que inicializa e conecta o Provider Hub, Tools Hub e
-métricas operacionais. Credenciais nunca são incluídas nos diagnósticos.
+Rotas padrão: Google para AI Task, Conversation e Image; Google com fallback
+Azure para STT; Azure com fallback Google para TTS; Tavily para Search.
 
-### Luna Provider Hub
-
-Registro plugável por capacidade. A entidade do Home Assistant solicita uma
-capacidade e o Hub seleciona o adaptador configurado.
-
-| Provedor | AI Task | Conversation | STT | TTS |
-|---|---:|---:|---:|---:|
-| Google Gemini | Sim | Sim | Sim | Sim |
-| Microsoft Azure Speech | Não | Não | Sim | Sim |
-
-O Google mantém seleção de modelos e fornece Gemini 3.1 Flash-Lite,
-transcrição multimodal e Gemini 3.1 Flash TTS. O Azure usa a API regional Speech
-para STT de áudio curto e TTS neural com SSML e áudio WAV PCM validado.
-
-### Lista central de API keys e consumo
+## Configuração geral
 
 Abra **Configurações → Dispositivos e serviços → Luna Assistant Prime →
-Configurar**. O menu do Provider Hub permite:
+Configurar**. O menu permite:
 
-- adicionar, editar, ativar, desativar e remover várias chaves Google e Azure;
-- nomear cada chave e definir sua prioridade;
-- limitar chamadas diárias e mensais por chave;
-- limitar tokens Google, caracteres Azure TTS e segundos Azure STT;
-- impor limites globais separados para Google e Azure;
-- escolher rotação por prioridade, rodízio ou menor consumo mensal;
-- ativar failover entre chaves e, em STT/TTS, entre Google e Azure; definir
-  número máximo de tentativas e cooldown.
+1. Definir a política geral de pesquisa e failover.
+2. Configurar providers e qualquer quantidade de credenciais.
+3. Ordenar providers em cada rota de capacidade.
+4. Editar, gerar e pré-visualizar as frases de latência.
+5. Salvar toda a configuração central.
 
-O consumo é persistido no Home Assistant e reinicia automaticamente nos períodos
-diário/mensal. `0` significa ilimitado. Chaves nunca aparecem nos diagnósticos;
-somente nome, região, limites, estado, cooldown e consumo agregado.
+### Pesquisa na internet
 
-### Luna Tools Hub
+A opção geral **Habilitar pesquisa na internet** é a chave mestra. Quando
+desligada, a ferramenta não é oferecida ao modelo, mesmo que Tavily esteja
+configurado. Quando ligada, Tavily precisa estar habilitado, ter ao menos uma
+chave válida e fazer parte da rota Search.
 
-Primeiro adaptador de ferramenta: Google Search Grounding. A pesquisa pode ser
-combinada com as funções de controle do Home Assistant na mesma conversa e
-continua disponível no perfil Rápido.
+O controle antigo por entidade Conversation é migrado: se havia valores
+explícitos, a opção geral fica ligada quando pelo menos uma conversa permitia
+pesquisa; sem configuração anterior, o padrão é ligado.
 
-### Métricas internas
+### Providers, credenciais e consumo
 
-Registra chamadas, sucesso, erro normalizado, unidades de entrada/saída e
-latência recente (última, média, p50 e p95). O estado aparece nos diagnósticos
-da integração.
+Cada provider possui estado, capacidades, estratégia de rotação, cooldown,
+limites globais e uma lista ilimitada de credenciais. Cada credencial pode ser
+nomeada, priorizada, ativada ou desativada. Credenciais Azure incluem sua região.
+
+O seletor por maior saldo considera os limites herdados e evita chaves em
+cooldown ou esgotadas. Empates são distribuídos. O round-robin força rodízio.
+`0` em limites ou tentativas significa ilimitado/tentar todas as opções
+elegíveis. Os limites são proteções locais; o portal de cada provider continua
+sendo a fonte oficial de cota e faturamento.
+
+O consumo é persistido fora do caminho crítico. Diagnósticos mostram apenas a
+identificação mascarada, consumo, saldo estimado, rota, cooldown e último erro.
+
+### Frases durante a pesquisa
+
+Por padrão, a Luna usa cinco frases curtas. A geração ocorre em segundo plano
+pela rota TTS configurada e os arquivos são reutilizados enquanto texto, voz e
+configuração permanecerem iguais. Durante uma pesquisa lenta, uma frase é
+escolhida sem repetição imediata e reproduzida no media player associado ao
+dispositivo, quando disponível. A interface permite editar, gerar novamente e
+pré-visualizar cada frase.
 
 ## Instalação/atualização
 
-1. Copie `custom_components/luna_assistant` para `/config/custom_components/`.
+1. Copie `custom_components/luna_assistant` para
+   `/config/custom_components/luna_assistant`.
 2. Reinicie completamente o Home Assistant.
-3. A entrada existente é migrada automaticamente para a Prime v1.1; os serviços
-   existentes permanecem no Google.
-4. Em **Configurações → Dispositivos e serviços → Luna Assistant Prime**, abra
-   ou adicione as entidades AI Task, Conversation, STT e TTS.
+3. Abra a configuração da Luna, cadastre a chave Tavily se quiser pesquisa e
+   revise as rotas.
+4. Salve. As entradas antigas são migradas automaticamente para o esquema 2:10.
 
-## Configurar Azure STT e TTS
-
-1. Em **Configurar → Adicionar chave Microsoft Azure**, informe nome, chave,
-   região (por exemplo `brazilsouth`), prioridade e limites.
-2. Reconfigure ou adicione uma entidade Luna STT ou Luna TTS.
-3. Em **Provedor**, selecione **Microsoft Azure Speech**.
-4. No TTS, escolha voz e formato; no STT, escolha como tratar palavrões.
-5. Para Google Nest/outro media player, selecione a entidade TTS no campo
-   **Provedor Luna TTS** da Luna Conversation.
-
-Voz padrão: `pt-BR-FranciscaNeural`. O formato padrão é
-`riff-24khz-16bit-mono-pcm`.
+Para HACS, publique o conteúdo deste pacote no repositório, crie a tag
+`v1.2.0` e anexe o ZIP da release.
 
 ## Compatibilidade com Luna Satellite
 
 - Serviço `luna_assistant.interrupt_external_audio` preservado.
 - Saída Atom continua pelo Assist Pipeline.
-- Saída externa continua usando `entity_id` canônico.
+- Saída externa continua usando o `entity_id` canônico.
 - O Satellite é notificado somente quando o player externo termina.
-- Barge-in e conversa contínua não foram movidos para o Core.
-
-## Adicionar outro provedor
-
-Consulte [PROVIDER_DEVELOPMENT.md](PROVIDER_DEVELOPMENT.md). Um novo provedor,
-como OpenAI, implementa o contrato `LunaProviderAdapter` e é registrado no Hub.
-As entidades `ai_task`, `conversation`, `stt` e `tts` permanecem inalteradas.
+- Barge-in e conversa contínua permanecem fora do Luna Core.
 
 ## Validação
 
-O pacote contém testes estáticos e unitários sem credenciais. Testes físicos no
-Home Assistant ainda são obrigatórios porque chamadas reais do Google/Azure e
-reprodução no Atom/Nest dependem da instalação do usuário.
+O pacote inclui verificações estáticas e testes executáveis sem credenciais.
+Chamadas reais Google/Azure/Tavily e reprodução física no Atom/Nest ainda devem
+ser validadas na instalação antes da promoção para estável.
+
+Detalhes: [ARCHITECTURE.md](ARCHITECTURE.md),
+[PROVIDER_DEVELOPMENT.md](PROVIDER_DEVELOPMENT.md) e
+[RELEASE_NOTES.md](RELEASE_NOTES.md).

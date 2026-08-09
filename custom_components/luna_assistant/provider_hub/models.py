@@ -13,6 +13,7 @@ class ProviderCapability(StrEnum):
     CONVERSATION = "conversation"
     STT = "stt"
     TTS = "tts"
+    SEARCH = "search"
     IMAGE = "image"
 
 
@@ -46,3 +47,14 @@ class AudioResult:
     channels: int
     bits_per_sample: int
     voice: str
+
+
+@dataclass(frozen=True, slots=True)
+class SearchResult:
+    """Provider-neutral web search response."""
+
+    provider: str
+    query: str
+    answer: str | None
+    results: tuple[dict, ...]
+    credits: int = 1

@@ -64,6 +64,14 @@ class LunaProviderAdapter(ABC):
             f"{self.display_name} has no TTS adapter",
         )
 
+    async def async_search(self, **kwargs: Any) -> Any:
+        """Search the web."""
+        raise ProviderError(
+            self.name,
+            "not_implemented",
+            f"{self.display_name} has no Search adapter",
+        )
+
     def diagnostics(self) -> Mapping[str, Any]:
         return {
             "display_name": self.display_name,

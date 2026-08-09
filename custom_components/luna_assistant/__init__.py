@@ -33,8 +33,13 @@ from .const import (
     AUDIO_OUTPUT_ATOM,
     CONF_AUDIO_OUTPUT,
     CONF_OUTPUT_MEDIA_PLAYER,
+    CONF_PROVIDERS,
+    CONF_ROUTES,
+    CONF_SEARCH_ENABLED,
+    CONF_USE_GOOGLE_SEARCH_TOOL,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_AUDIO_OUTPUT,
+    DEFAULT_SEARCH_ENABLED,
     DEFAULT_STT_NAME,
     DEFAULT_TITLE,
     DEFAULT_TTS_NAME,
@@ -45,10 +50,16 @@ from .const import (
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
     SERVICE_INTERRUPT_EXTERNAL_AUDIO,
+    SERVICE_GENERATE_LATENCY_PHRASES,
+    SERVICE_PREVIEW_LATENCY_PHRASE,
     TIMEOUT_MILLIS,
 )
 from .core import LunaCore
-from .provider_hub.credentials import credentials_from_entry
+from .provider_hub.credentials import (
+    credentials_from_entry,
+    providers_from_entry,
+    routes_from_entry,
+)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = (
@@ -103,6 +114,35 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_INTERRUPT_EXTERNAL_AUDIO,
             async_interrupt_external_audio,
+        )
+
+    async def async_generate_latency_phrases(call: ServiceCall) -> None:
+        """Generate missing or stale latency feedback files."""
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if entry.runtime_data is not None:
+                await entry.runtime_data.feedback.async_generate()
+
+    async def async_preview_latency_phrase(call: ServiceCall) -> None:
+        """Preview one generated phrase on a selected media player."""
+        phrase = str(call.data.get("phrase", "")).strip()
+        media_player = str(call.data.get("media_player", "")).strip()
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if entry.runtime_data is not None:
+                await entry.runtime_data.feedback.async_play_phrase(
+                    phrase, media_player or None
+                )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_GENERATE_LATENCY_PHRASES):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GENERATE_LATENCY_PHRASES,
+            async_generate_latency_phrases,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_PREVIEW_LATENCY_PHRASE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_PREVIEW_LATENCY_PHRASE,
+            async_preview_latency_phrase,
         )
 
     return True
@@ -161,7 +201,10 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: LunaAssistantConfigEntry
 ) -> bool:
     """Unload Luna Assistant Prime."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.providers.async_close()
+    return unloaded
 
 
 async def async_update_options(
@@ -363,6 +406,39 @@ async def async_migrate_entry(
             entry,
             options={**entry.options, "credentials": credentials},
             minor_version=8,
+        )
+
+    if entry.version == 2 and entry.minor_version < 9:
+        # Prime v1.1.1 exposes the existing central catalogue as independent
+        # Google and Azure lists. Storage is already list-based; no rewrite is
+        # required, so every configured credential and usage id is preserved.
+        hass.config_entries.async_update_entry(entry, minor_version=9)
+
+    if entry.version == 2 and entry.minor_version < 10:
+        # Prime v1.2 merges legacy instances by technology, preserves every
+        # credential id, and introduces ordered routes for five capabilities.
+        migrated_options = dict(entry.options)
+        migrated_options[CONF_PROVIDERS] = providers_from_entry(entry)
+        migrated_options[CONF_ROUTES] = routes_from_entry(entry)
+        if CONF_SEARCH_ENABLED not in migrated_options:
+            legacy_search_values = [
+                bool(subentry.data[CONF_USE_GOOGLE_SEARCH_TOOL])
+                for subentry in entry.subentries.values()
+                if subentry.subentry_type == "conversation"
+                and CONF_USE_GOOGLE_SEARCH_TOOL in subentry.data
+            ]
+            migrated_options[CONF_SEARCH_ENABLED] = (
+                any(legacy_search_values)
+                if legacy_search_values
+                else DEFAULT_SEARCH_ENABLED
+            )
+        migrated_options.pop("provider_instances", None)
+        migrated_options.pop("provider_limits", None)
+        migrated_options.pop("credentials", None)
+        hass.config_entries.async_update_entry(
+            entry,
+            options=migrated_options,
+            minor_version=10,
         )
 
     LOGGER.debug(

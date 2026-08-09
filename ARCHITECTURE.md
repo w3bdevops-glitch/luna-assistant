@@ -1,44 +1,67 @@
-# Arquitetura Luna Assistant Prime v1.1
+# Arquitetura Luna Assistant Prime v1.2
 
 ```text
 Luna Satellite / ESPHome
           ↓
 Home Assistant Assist Pipeline
           ↓
-Entidades Luna (AI Task, Conversation, STT, TTS)
+Entidades Luna (AI Task, Conversation, STT e TTS)
           ↓
 Luna Core
-     ├── Provider Hub ── Credential Manager / Consumption
-     │                ├─ Google Gemini
-     │                └─ Azure Speech STT/TTS
-     ├── Tools Hub ───── Google Search Grounding
+     ├── Provider Hub ── Credential Manager / Usage Meter
+     │       ├── Google Gemini
+     │       ├── Microsoft Azure Speech
+     │       └── Tavily Search
+     ├── Tools Hub ───── Search Tool
+     ├── Latency Feedback ─ TTS cache / media_player
      └── Metrics
 ```
 
-## Limites
+## Fronteiras
 
 O Assist Pipeline continua sendo o orquestrador de voz. Luna Core coordena
-somente componentes internos da integração. Luna Satellite continua proprietário
-dos estados físicos e de voz do Atom.
+somente componentes internos da integração. Luna Satellite permanece
+proprietário dos estados físicos e de voz do Atom.
 
-## Contratos
+## Providers e rotas
 
-`LunaProviderAdapter` define operações comuns. `ProviderRegistry` registra
-adaptadores e resolve um provedor por `ProviderCapability`. O Hub é a única
-camada consultada pelas entidades.
+Um provider representa uma tecnologia; suas credenciais são recursos internos.
+As entidades solicitam capacidades, nunca uma chave. `ProviderRegistry` valida o
+contrato do adaptador e `CredentialManager` resolve a rota ordenada, elegibilidade,
+saldo, rotação, cooldown, limites e persistência.
 
-`ProviderError` normaliza categoria, código HTTP e possibilidade de repetição.
-`AudioResult` normaliza WAV, taxa, canais, profundidade e voz.
+| Capacidade | Rota padrão |
+|---|---|
+| AI Task | Google |
+| Conversation | Google |
+| STT | Google → Azure |
+| TTS | Azure → Google |
+| Search | Tavily |
+| Image | Google |
 
-`CredentialManager` fica abaixo do Hub e acima dos adaptadores. Ele reserva uma
-credencial elegível antes da chamada, aplica limites por período, seleciona a
-próxima chave, persiste o consumo e impõe cooldown. Os adaptadores reportam a
-unidade real de cada serviço: tokens, caracteres ou segundos de áudio.
+O máximo geral de tentativas envolve toda a operação, inclusive a troca de
+provider. O máximo do provider pode restringir adicionalmente quantas chaves
+daquela tecnologia serão tentadas.
 
-O Hub tenta primeiro todas as credenciais elegíveis do provedor selecionado.
-Com failover automático, STT e TTS podem continuar no outro provedor registrado;
-Conversation, AI Task e imagem não trocam de provedor porque só o Google oferece
-essas capacidades nesta versão.
+## Consumo e erros
 
-O Tools Hub é separado do Provider Hub porque ferramentas podem usar mecanismos
-ou fornecedores diferentes do modelo de conversa.
+Uma chave elegível é reservada antes da chamada; a unidade medida substitui a
+reserva após o retorno. Chamadas e unidades são persistidas de forma assíncrona.
+`ProviderError` normaliza categoria, HTTP status e possibilidade de retry.
+Somente erros classificados para failover avançam na rota.
+
+## Search e feedback de latência
+
+O Tools Hub anexa Tavily como ferramenta LLM à AI Task ou Conversation quando a
+flag geral, o provider, uma credencial e a rota Search estão habilitados. A
+resposta retorna dados normalizados para o modelo.
+
+Em paralelo, o Latency Feedback aguarda o limiar configurado e pode reproduzir
+uma frase no media player associado ao dispositivo. Os arquivos TTS usam cache
+derivado do texto e das opções de voz; pesquisa e áudio não bloqueiam um ao
+outro.
+
+## Segurança
+
+Credenciais ficam na configuração protegida do Home Assistant. Diagnósticos
+incluem somente sufixos mascarados, metadados operacionais e consumo agregado.

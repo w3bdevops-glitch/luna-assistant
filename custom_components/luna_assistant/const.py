@@ -13,6 +13,8 @@ LOGGER = logging.getLogger(__package__)
 
 DOMAIN = "luna_assistant"
 SERVICE_INTERRUPT_EXTERNAL_AUDIO = "interrupt_external_audio"
+SERVICE_GENERATE_LATENCY_PHRASES = "generate_latency_phrases"
+SERVICE_PREVIEW_LATENCY_PHRASE = "preview_latency_phrase"
 DEFAULT_TITLE = "Luna Assistant Prime"
 
 DEFAULT_CONVERSATION_NAME = "Luna Conversation"
@@ -24,7 +26,19 @@ DEFAULT_AI_TASK_NAME = "Luna AI Task"
 CONF_PROVIDER = "provider"
 PROVIDER_GOOGLE = "google"
 PROVIDER_AZURE = "azure"
+PROVIDER_TAVILY = "tavily"
 DEFAULT_PROVIDER = PROVIDER_GOOGLE
+# Prime v1.2 stores one provider configuration per technology.  The old
+# provider_instances key remains readable only for non-destructive migration.
+CONF_PROVIDERS = "providers"
+CONF_ROUTES = "service_routes"
+CONF_SEARCH_ENABLED = "search_enabled"
+CONF_PROVIDER_INSTANCES = "provider_instances"
+CONF_PROVIDER_INSTANCE_ID = "provider_instance_id"
+CONF_PROVIDER_INSTANCE_NAME = "provider_instance_name"
+CONF_PROVIDER_ADAPTER = "provider_adapter"
+CONF_PROVIDER_ACTION = "provider_action"
+CONF_PROVIDER_CAPABILITIES = "provider_capabilities"
 # Central Provider Hub credential and consumption controls.
 CONF_CREDENTIALS = "credentials"
 CONF_AUTO_FAILOVER = "auto_failover"
@@ -32,10 +46,30 @@ CONF_FAILOVER_ATTEMPTS = "failover_attempts"
 CONF_FAILOVER_COOLDOWN = "failover_cooldown_seconds"
 CONF_ROTATION_STRATEGY = "rotation_strategy"
 CONF_PROVIDER_LIMITS = "provider_limits"
-DEFAULT_FAILOVER_ATTEMPTS = 3
+DEFAULT_FAILOVER_ATTEMPTS = 0
 DEFAULT_FAILOVER_COOLDOWN = 300
-DEFAULT_ROTATION_STRATEGY = "priority"
-ROTATION_STRATEGIES = ("priority", "round_robin", "least_used")
+DEFAULT_ROTATION_STRATEGY = "highest_balance"
+ROTATION_STRATEGIES = ("highest_balance", "round_robin")
+
+PROVIDER_DISPLAY_NAMES = {
+    PROVIDER_GOOGLE: "Google AI",
+    PROVIDER_AZURE: "Microsoft Azure Speech",
+    PROVIDER_TAVILY: "Tavily",
+}
+PROVIDER_CAPABILITIES = {
+    PROVIDER_GOOGLE: ("ai_task", "conversation", "stt", "tts", "image"),
+    PROVIDER_AZURE: ("stt", "tts"),
+    PROVIDER_TAVILY: ("search",),
+}
+DEFAULT_PROVIDER_ROUTES = {
+    "ai_task": [PROVIDER_GOOGLE],
+    "conversation": [PROVIDER_GOOGLE],
+    "stt": [PROVIDER_GOOGLE, PROVIDER_AZURE],
+    "tts": [PROVIDER_AZURE, PROVIDER_GOOGLE],
+    "search": [PROVIDER_TAVILY],
+    "image": [PROVIDER_GOOGLE],
+}
+DEFAULT_SEARCH_ENABLED = True
 
 # Credential editor fields used only by the integration options flow.
 CONF_CREDENTIAL_ID = "credential_id"
@@ -48,15 +82,20 @@ CONF_MONTHLY_REQUEST_LIMIT = "monthly_request_limit"
 CONF_MONTHLY_TOKEN_LIMIT = "monthly_token_limit"
 CONF_MONTHLY_TTS_CHARACTER_LIMIT = "monthly_tts_character_limit"
 CONF_MONTHLY_STT_SECONDS_LIMIT = "monthly_stt_seconds_limit"
+CONF_MONTHLY_SEARCH_CREDIT_LIMIT = "monthly_search_credit_limit"
 CONF_AZURE_SPEECH_KEY = "azure_speech_key"
 CONF_AZURE_REGION = "azure_region"
 CONF_AZURE_VOICE = "azure_voice"
 CONF_AZURE_OUTPUT_FORMAT = "azure_output_format"
 CONF_AZURE_STT_PROFANITY = "azure_stt_profanity"
+CONF_TAVILY_SEARCH_DEPTH = "tavily_search_depth"
+CONF_TAVILY_MAX_RESULTS = "tavily_max_results"
 DEFAULT_AZURE_REGION = "brazilsouth"
 DEFAULT_AZURE_VOICE = "pt-BR-FranciscaNeural"
 DEFAULT_AZURE_OUTPUT_FORMAT = "riff-24khz-16bit-mono-pcm"
 DEFAULT_AZURE_STT_PROFANITY = "raw"
+DEFAULT_TAVILY_SEARCH_DEPTH = "basic"
+DEFAULT_TAVILY_MAX_RESULTS = 5
 AZURE_PT_BR_VOICES = (
     "pt-BR-FranciscaNeural",
     "pt-BR-ThalitaMultilingualNeural",
@@ -140,6 +179,21 @@ CONF_RESPONSE_LENGTH = "response_length"
 CONF_LATENCY_PROFILE = "latency_profile"
 CONF_VOICE_MOOD = "voice_mood"
 CONF_SPEAKING_PACE = "speaking_pace"
+
+# Pre-generated latency feedback used while Search is still running.
+CONF_LATENCY_FEEDBACK_ENABLED = "latency_feedback_enabled"
+CONF_LATENCY_FEEDBACK_DELAY_MS = "latency_feedback_delay_ms"
+CONF_LATENCY_PHRASES = "latency_phrases"
+CONF_LATENCY_ACTION = "latency_action"
+CONF_LATENCY_PREVIEW_PHRASE = "latency_preview_phrase"
+DEFAULT_LATENCY_FEEDBACK_DELAY_MS = 700
+DEFAULT_LATENCY_PHRASES = (
+    "Hum… deixa eu pesquisar isso.",
+    "Estou verificando para você.",
+    "Só um instante, vou consultar informações atualizadas.",
+    "Deixa eu confirmar essa informação.",
+    "Um momento, estou pesquisando.",
+)
 
 # Voice response destination. This belongs to Luna Assistant/Home Assistant,
 # never to the ESPHome satellite firmware.
@@ -235,7 +289,6 @@ RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_RESPONSE_LENGTH: DEFAULT_RESPONSE_LENGTH,
     CONF_LATENCY_PROFILE: DEFAULT_LATENCY_PROFILE,
     CONF_AUDIO_OUTPUT: DEFAULT_AUDIO_OUTPUT,
-    CONF_USE_GOOGLE_SEARCH_TOOL: RECOMMENDED_USE_GOOGLE_SEARCH_TOOL,
 }
 
 RECOMMENDED_STT_OPTIONS = {

@@ -44,14 +44,16 @@ class AzureSpeechProvider(LunaProviderAdapter):
         capability: ProviderCapability,
         operation: str,
         callback: Callable[[CredentialLease], Awaitable[tuple[T, int, int]]],
+        provider_instance: str | None = None,
     ) -> T:
+        provider_instance = self.name
         excluded: set[str] = set()
         last_error: ProviderError | None = None
-        attempts = self._credentials.failover_attempts
+        attempts = self._credentials.provider_attempts(self.name)
         for attempt in range(attempts):
             try:
                 lease = await self._credentials.async_acquire(
-                    self.name,
+                    provider_instance,
                     capability,
                     excluded=excluded,
                     failover=attempt > 0,
@@ -69,7 +71,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
                 await self._credentials.async_fail(lease, err)
                 self._metrics.record(
                     service=capability.value,
-                    provider=self.name,
+                    provider=provider_instance,
                     operation=operation,
                     started=started,
                     success=False,
@@ -91,7 +93,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
             )
             self._metrics.record(
                 service=capability.value,
-                provider=self.name,
+                provider=provider_instance,
                 operation=operation,
                 started=started,
                 success=True,
@@ -132,6 +134,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
         mime_type: str,
         language: str,
         profanity: str = "raw",
+        provider_instance: str | None = None,
         **_kwargs,
     ) -> str:
         """Transcribe Assist short audio through Azure Speech REST."""
@@ -168,7 +171,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
                         "Ocp-Apim-Subscription-Key": lease.credential.secret,
                         "Content-Type": content_type,
                         "Accept": "application/json",
-                        "User-Agent": "Luna-Assistant-Prime/1.1",
+                        "User-Agent": "Luna-Assistant-Prime/1.2",
                     },
                     timeout=ClientTimeout(total=45),
                 ) as response:
@@ -207,6 +210,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
             capability=ProviderCapability.STT,
             operation="transcribe",
             callback=request,
+            provider_instance=provider_instance,
         )
 
     async def async_synthesize(
@@ -217,6 +221,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
         voice: str,
         output_format: str,
         rate: str,
+        provider_instance: str | None = None,
         **_kwargs,
     ) -> AudioResult:
         """Synthesize speech with credential rotation and character budgets."""
@@ -242,7 +247,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
                         "Ocp-Apim-Subscription-Key": lease.credential.secret,
                         "Content-Type": "application/ssml+xml",
                         "X-Microsoft-OutputFormat": output_format,
-                        "User-Agent": "Luna-Assistant-Prime/1.1",
+                        "User-Agent": "Luna-Assistant-Prime/1.2",
                     },
                     timeout=ClientTimeout(total=30),
                 ) as response:
@@ -257,7 +262,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
                     self.name, "transport", str(err), retryable=True
                 ) from err
             result = AudioResult(
-                provider=self.name,
+                provider=provider_instance or self.name,
                 format="wav",
                 data=audio,
                 sample_rate=info.sample_rate,
@@ -271,6 +276,7 @@ class AzureSpeechProvider(LunaProviderAdapter):
             capability=ProviderCapability.TTS,
             operation="synthesize",
             callback=request,
+            provider_instance=provider_instance,
         )
 
     @staticmethod

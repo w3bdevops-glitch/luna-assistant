@@ -13,7 +13,8 @@ assert '"Ocp-Apim-Subscription-Key"' in AZURE
 assert '"X-Microsoft-OutputFormat"' in AZURE
 assert "application/ssml+xml" in AZURE
 assert "validate_wav(audio)" in AZURE
-assert "async_step_add_azure" in CONFIG
+assert "PROVIDER_AZURE" in CONFIG
+assert "async_step_add_credential" in CONFIG
 assert "TextSelectorType.PASSWORD" in CONFIG
 assert "CONF_AZURE_SPEECH_KEY" in DIAGNOSTICS
 

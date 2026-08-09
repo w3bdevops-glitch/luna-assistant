@@ -62,7 +62,6 @@ from .const import (
     CONF_THINKING_LEVEL,
     CONF_TOP_K,
     CONF_TOP_P,
-    CONF_USE_GOOGLE_SEARCH_TOOL,
     DEFAULT_LATENCY_PROFILE,
     DEFAULT_PROVIDER,
     DOMAIN,
@@ -629,21 +628,16 @@ class LunaProviderLLMBaseEntity(Entity):
         genai_client = client or self._genai_client
 
         tools: ToolListUnion | None = None
+        # Conversation merges Search into its HA API. AI Task receives a small
+        # internal API instance when no other tool API was configured.
+        self._core.tools.attach_search_tool(chat_log, options=options)
         if chat_log.llm_api:
             tools = [
                 _format_tool(tool, chat_log.llm_api.custom_serializer)
                 for tool in chat_log.llm_api.tools
             ]
 
-        # Gemini 3 supports combining built-in Google Search grounding with
-        # custom function tools.  This lets Luna keep the Home Assistant LLM
-        # API enabled while the model selectively searches for current facts.
         latency_profile = options.get(CONF_LATENCY_PROFILE, DEFAULT_LATENCY_PROFILE)
-
-        tools = self._core.tools.build_google_tools(
-            tools,
-            enable_web_search=options.get(CONF_USE_GOOGLE_SEARCH_TOOL) is True,
-        )
 
         configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
         model_name = (
